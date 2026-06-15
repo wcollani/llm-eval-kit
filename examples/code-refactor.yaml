@@ -1,0 +1,13 @@
+experiment_name: "Single-Agent Bash-to-Python Refactor"
+workflow: "single_agent"
+system_prompt: "You are an expert Python engineer. Return ONLY python code. No markdown formatting."
+models_to_test:
+  - "ollama/llama3.1:8b"
+  - "ollama/qwen2.5-coder:7b"
+  - "ollama/qwen2.5-coder:14b"
+judge_model: "ollama/qwen2.5-coder:14b"
+test_cases:
+  - name: "Refactor health check script"
+    input_file: "examples/inputs/sample_script.sh"
+    task_prompt: "Convert this bash script to Python. Use the 'requests' library for HTTP calls and 'subprocess' for any shell commands. Ensure it is robust with proper error handling."
+    expected_output_criteria: "The python script must use the requests library for HTTP health checks. It must include error handling (try-except) for HTTP requests. It must have an if __name__ == '__main__': entrypoint. It must check at least 3 services."

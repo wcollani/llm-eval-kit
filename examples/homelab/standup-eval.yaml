@@ -1,0 +1,12 @@
+experiment_name: "Homelab Standup Simulation Evaluation"
+system_prompt: "You are an advanced AI assistant capable of roleplaying multiple personas. Please execute the instructions in the provided file."
+orchestrator_models:
+  - "openai/ollama/ws/qwen2.5-coder:14b"
+  - "openai/ollama/ws/llama3.1:8b"
+  - "openai/ollama/ws/deepseek-r1:14b"
+judge_model: "openai/ollama/ws/qwen2.5-coder:14b"
+test_cases:
+  - name: "Persona Tone and Roadmap/Hardware Adherence"
+    # NOTE: references homelab-specific files (src/meta/prompts/standup.md etc.)
+    input_file: "src/meta/prompts/standup.md"
+    expected_output_criteria: "The output MUST contain three distinct status reports for the SRE Agent, Dev Agent, and Manager Agent, with each maintaining its respective persona tone. The SRE and Dev agents MUST report on active tasks, blockers, and milestones derived accurately from 'src/meta/ROADMAP.md'. The Manager Agent MUST summarize overall project health, tech debt progress, and concrete next steps. The output MUST NOT hallucinate hardware that isn't listed in 'src/meta/ARCH_HARDWARE.md'. It MUST end by asking the Lead Engineer how to proceed."

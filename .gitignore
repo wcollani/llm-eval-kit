@@ -1,0 +1,12 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+results/*.json
+results/artifacts/
+temp_output.py
+.deepeval/
+experiments/inputs/vuln_chunks/
+experiments/inputs/synthetic_codebase_*.py

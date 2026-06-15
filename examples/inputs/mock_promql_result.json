@@ -1,0 +1,15 @@
+{
+  "status": "success",
+  "data": {
+    "resultType": "vector",
+    "result": [
+      {
+        "metric": {
+          "container": "api-server-1",
+          "namespace": "production"
+        },
+        "value": [1716503923, "0.99"]
+      }
+    ]
+  }
+}

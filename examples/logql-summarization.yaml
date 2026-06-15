@@ -1,0 +1,14 @@
+experiment_name: "Single-Agent Loki Log Summarization"
+workflow: "single_agent"
+system_prompt: "You are an expert SRE. Read the following log trace and summarize the root cause in one short sentence. Do not include markdown formatting or extra text."
+models_to_test:
+  - "ollama/llama3.1:8b"
+  - "ollama/qwen2.5-coder:7b"
+  - "ollama/qwen2.5-coder:14b"
+  - "ollama/mistral:latest"
+judge_model: "ollama/qwen2.5-coder:14b"
+test_cases:
+  - name: "Summarize Database Connection Error"
+    input_file: "examples/inputs/mock_loki_logs.json"
+    task_prompt: "Analyze the provided Loki log dump and summarize the root cause of the API failure."
+    expected_output_criteria: "The summary must state that the failure was caused by the database connection pool being exhausted or that there were no remaining connection slots for non-superuser connections."

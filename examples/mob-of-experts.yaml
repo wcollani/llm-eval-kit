@@ -1,0 +1,18 @@
+experiment_name: "Mob of Experts Blog Benchmark"
+workflow: "mob_of_experts"
+system_prompt: "You are an expert technical writer and developer advocate."
+mob_combinations:
+  - orchestrator: "ollama/qwen2.5-coder:14b"
+    generator: "ollama/llama3.1:8b"
+    critic: "ollama/qwen2.5-coder:14b"
+    refiner: "ollama/qwen2.5-coder:14b"
+  - orchestrator: "ollama/llama3.1:8b"
+    generator: "ollama/mistral:latest"
+    critic: "ollama/llama3.1:8b"
+    refiner: "ollama/llama3.1:8b"
+judge_model: "ollama/qwen2.5-coder:14b"
+test_cases:
+  - name: "Multi-Agent Patterns Blog (Mob)"
+    input_file: "examples/inputs/multi-agent-patterns.md"
+    task_prompt: "Convert the provided README into an engaging blog post about Multi-Agent Patterns. Include a catchy title, headings, and a concluding summary."
+    expected_output_criteria: "Must have a catchy title. Must mention at least 3 patterns from the source. Must have headings. Must have a concluding summary. Should demonstrate synthesis of multiple expert perspectives."

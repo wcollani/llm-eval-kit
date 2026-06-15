@@ -1,0 +1,18 @@
+experiment_name: "Single-Agent PromQL Generation"
+workflow: "single_agent"
+system_prompt: "You are an expert SRE. Return ONLY a valid PromQL query. No markdown formatting or explanations."
+models_to_test:
+  - "ollama/llama3.1:8b"
+  - "ollama/qwen2.5-coder:7b"
+  - "ollama/qwen2.5-coder:14b"
+  - "ollama/mistral:latest"
+judge_model: "ollama/qwen2.5-coder:14b"
+test_cases:
+  - name: "95th Percentile Response Time"
+    input_file: "examples/inputs/mock_prom_schema.md"
+    task_prompt: "Write a PromQL query to find the 95th percentile response time for the 'grafana' container over the last 5 minutes."
+    expected_output_criteria: "The query must use histogram_quantile. It must use the 0.95 quantile. It must query the http_request_duration_seconds metric (likely with a _bucket suffix). It must filter by container=\"grafana\". It must use rate() over [5m]."
+  - name: "Error Rate by Container"
+    input_file: "examples/inputs/mock_prom_schema.md"
+    task_prompt: "Write a PromQL query to calculate the per-second HTTP 5xx error rate for each container over the last 5 minutes."
+    expected_output_criteria: "The query must use the http_requests_total metric. It must filter by status starting with 5 or equal to 500/502/503. It must use rate() over [5m]. It must group by container label."

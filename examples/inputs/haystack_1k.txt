@@ -1,0 +1,319 @@
+\n\n--- FILE: ./task.md ---\n\n# homelab Task Tracker
+
+- `[ ]` uncompleted tasks
+- `[/]` in progress tasks (custom notation)
+- `[x]` completed tasks
+
+## Current Sprint
+
+- [ ] Define initial tasks
+\n\n--- FILE: ./README.md ---\n\n# homelab
+Top Level Homelab repo with private info, high level documentation, planning, context, workflows, reporting, config etc
+\n\n--- FILE: ./Reports/Agent_Eval_Benchmarking_Results.md ---\n\n# Agent Evaluation & Benchmarking Results
+
+**Date:** 2026-05-25
+**Hardware Used:** Workstation (RTX 5080) & SRE Node (RTX 3070 Ti)
+
+This report summarizes the results of our foundational experiments using `agent-eval`. It covers both **Vision Model Analysis** and **Distributed MAS Swarm Capacity** tests.
+
+## Model Evaluation Summary
+
+| Model | Hardware / Engine | Latency (Avg) | Accuracy / Behavior |
+| :--- | :--- | :--- | :--- |
+| **`llava:latest` (7B)** | Workstation (Ollama) | Fast | **The Baseline Winner.** Extremely consistent, well-balanced verbosity, and accurate. The best all-rounder for general vision tasks on the Workstation. |
+| **`llama3.2-vision:11b`** | Workstation (Ollama) | Moderate | **The Over-Explainer.** Highly accurate and capable of brilliant deep reasoning, but severely penalizes itself in automated evaluations due to excessive verbosity. Best reserved for complex analysis tasks where deep detail is desired. |
+| **`Qwen/Qwen2-VL-2B-Instruct`** | SRE Node (vLLM) | Ultra-Fast (~0.6s) | **The Bounding Box Specialist.** Operates blazing fast on the 3070 Ti. Perfect at simple identification (e.g., flowers). However, its heavy grounding training causes it to output literal bounding box coordinates `(101,66)` instead of verbal descriptions for complex architectural scenes unless strictly prompted. |
+| **`llava:13b`** | Workstation (Ollama) | Slow | Comparable accuracy to the 7B version, but the latency hit makes it inefficient for rapid MAS triage. |
+| **`moondream:latest`** | Workstation (Ollama) | Fast | **Insufficient.** Failed to grasp architectural nuances and lacked the visual reasoning depth required for our use cases. |
+
+## Strategic Takeaways
+
+1. **Model Specialization is Required:** No single model is perfect for every task. `llava` is great for general chats, `llama3.2-vision` is ideal for deep UX/architecture breakdowns, and `Qwen2-VL` is unparalleled for rapid triage and object detection (grounding).
+2. **Prompt Engineering:** Models like `Qwen2-VL` require incredibly strict system prompts to constrain their output (e.g., "Do not output coordinates. Describe the scene verbally.") to prevent them from reverting to object detection outputs.
+
+## 2. MAS Swarm Capacity Benchmarks
+
+To validate our Distributed Multi-Agent architecture, we tested the hardware boundaries of both the SRE Node and the Workstation by bypassing the LiteLLM proxy and blasting models directly via the `ws/` and `sre/` routing prefixes.
+
+### SRE Node (RTX 3070 Ti - 8GB VRAM)
+Tested using `qwen2.5-coder:7b`.
+- **Max Queue Tolerance:** Successfully queued and processed **100 concurrent agents** sequentially without dropping a single connection (Avg Latency: 280s).
+- **Context-Heavy OOM Test:** Pushed 25 concurrent agents with 8,000-token payloads. The GPU **did not OOM crash**. Ollama managed the KV Cache gracefully, completing all 25 huge requests in ~60 seconds.
+- **Critical Discovery:** Systemd provisioners (e.g., `homelab-inference.service`) will stealth-restart `vLLM` if stopped manually. This steals 6.5GB of VRAM and causes 10-minute timeouts in Ollama. Always stop the systemd service via the toggle script before testing!
+
+### Workstation (RTX 5080 - 16GB VRAM)
+Tested using `llama3.2-vision:11b`.
+- **Latency Baseline:** Cleared a 25-concurrency swarm in **5.32 seconds total**. The 5080 handles parallel inference nearly 12x faster than the 3070 Ti, even when running a much larger 11B parameter model.
+
+## Proposed Future Experiments
+
+Now that basic classification and understanding are validated, we should expand `agent-eval` to test the models against the following advanced scenarios:
+
+1. **OCR & Structured Extraction:** 
+   * **Task:** Pass a messy receipt, a terminal stack trace screenshot, or a form into the models and demand a strict JSON schema output.
+   * **Goal:** Verify if smaller models (like Qwen-2B) drop fields compared to heavy models (Llama 3.2 11B).
+2. **Spatial & Layout Reasoning:**
+   * **Task:** Feed the models a UI mockup or an architectural diagram and ask them to reconstruct the layout or describe the DOM structure.
+   * **Goal:** Test their ability to comprehend relationships between visual elements rather than just identifying them.
+3. **Multi-Image Comparative Analysis (Anomaly Detection):**
+   * **Task:** Send a "before" and "after" image of a dashboard (e.g., a Grafana spike).
+   * **Goal:** Determine if models can detect the anomaly and explain what changed across frames (critical for the SRE Watchdog persona).
+\n\n--- FILE: ./Reports/MAS_Vision_Offload_Session.md ---\n\n# MAS Vision Offload Session Report
+
+**Date:** 2026-05-25
+**Topic:** Architectural Insights on Inference Providers (vLLM vs Ollama)
+
+## Executive Summary
+During the process of evaluating vision models (specifically `llama3.2-vision:11b` and `Qwen2-VL-7B`), we attempted to deploy a Tier 2 Vision Watchdog onto the SRE Node (`192.168.99.178`, RTX 3070 Ti) using `vLLM`.
+
+This deployment brought an architectural constraint to light: **vLLM requires static loading**. 
+
+## Architectural Observations
+
+1. **Static vs. Dynamic Loading:**
+   * **vLLM (SRE Node):** Models are defined statically at container startup (e.g., via `--model` argument). Changing a model requires a full container restart, resulting in downtime and latency while the model is pulled, loaded into VRAM, and the computation graphs are compiled.
+   * **Ollama (Workstation):** Models are dynamically loaded on-demand via API calls. This allows seamless multiplexing and swapping of weights in VRAM without container restarts.
+
+2. **Impact on Multi-Agent Systems (MAS):**
+   * **Production/Agent Environments:** The static nature of `vLLM` is highly advantageous. It guarantees that the required weights are persistently pinned in VRAM, eliminating "cold start" latency and preventing race conditions where agents might attempt to swap models out from under each other.
+   * **Experimental Environments:** For testing and benchmarking a wide array of models rapidly, `vLLM` is a severe bottleneck. The cycle time to test a new quant involves modifying Docker configuration, restarting services, and waiting for static initialization.
+
+## Strategic Recommendations
+
+For the broader Homelab architecture, we should establish clear boundaries based on these traits:
+
+- **The Workstation (RTX 5080) running Ollama** should remain the primary **Experimental & R&D Hub**. Its dynamic capabilities allow us to rapidly pull and test multiple vision models without friction.
+- **The SRE Node (RTX 3070 Ti) running vLLM** should be restricted to **Production/Agent Workloads**. When an experiment "graduates," its chosen model should be statically deployed to the SRE Node. This ensures agents relying on that capability experience 0-second cold starts and highly optimized, batched throughput. 
+
+### SRE Node "Experiment Mode" Consideration
+While the SRE node is primarily for production, we should consider supporting an **"Experiment Mode"**. This would involve an infrastructure toggle to gracefully spin down the `vLLM` container, freeing the 8GB VRAM entirely for temporary experimental workloads. 
+* **Implementation Path:** `LiteLLM` itself cannot orchestrate Docker container lifecycles (it is strictly an API router). However, our planned `homelab-orchestrator/async-worker` is the perfect candidate to manage this state transition. An agent could submit an async job to "Enable SRE Experiment Mode," triggering the worker to stop `vLLM`, run the tests, and then spin `vLLM` back up—all while LiteLLM uses fallback routing to route around the downtime.
+
+Moving forward, any new evaluation frameworks (like `agent-eval`) should focus on hitting the Workstation Ollama node unless validating a production deployment candidate, or explicitly requesting the `async-worker` to unlock the SRE node.
+
+### Final Thoughts on Experimentation Friction
+The rigid nature of the `vLLM/LiteLLM` stack undeniably introduces significant friction during rapid experimental phases. The pipeline of editing Docker manifests, waiting for containers to restart, and enduring long VRAM allocation loops makes rapid A/B testing of models across hardware tedious. 
+
+For future massive-scale experimentation phases, deploying `Ollama` concurrently on **both** the Workstation and the SRE Node would drastically accelerate our iteration velocity. Ollama's ability to seamlessly pull and hot-swap weights dynamically across the network would allow our `agent-eval` script to run multi-GPU comparison grids in seconds rather than hours, without ever touching an infrastructure manifest.
+\n\n--- FILE: ./Reports/agent_status_sre_analysis.md ---\n\n# Agent Status MVP: SRE Analysis & Remediation Plan
+
+This report outlines the findings from the initial run of the `agent-status` MVP tool. It is structured into two parallel tracks: **Infrastructure Remediation** and **Tool Enhancements**, allowing the platform and infra teams to address the identified gaps concurrently.
+
+## Track 1: Infrastructure Remediation
+*These tasks involve fixing underlying infrastructure issues and observability gaps discovered by the tool.*
+
+### 1. UPS Monitoring Failure (Critical)
+- **Issue**: Both Unraid nodes (Dionysus and Archive) report `UPS status unavailable: GraphQL error: Failed to get UPS data: No UPS data returned from apcaccess`.
+- **Impact**: We have zero visibility into battery backup status, leaving the storage arrays vulnerable to sudden power events.
+- **Action**: Debug the `apcaccess` daemon on Dionysus and Archive. Ensure the USB communication with the UPS is active and the `apcupsd` service is running.
+
+### 2. Missing Log Collection (High)
+- **Issue**: Neither Unraid node is shipping logs to Loki (`logs: not_configured`).
+- **Impact**: Troubleshooting container crashes or array errors requires manual SSH access.
+- **Action**: Deploy Promtail or Alloy to Dionysus and Archive to stream `/var/log/syslog` and Docker container logs to the central Loki instance (`192.168.99.178:3100`).
+
+### 3. UniFi Remote Syslog (Medium)
+- **Issue**: Network devices (UDM, USW, UAPs) currently do not ship logs to our centralized observability stack.
+- **Impact**: Missing audit logs and connection events for network diagnostics.
+- **Action**: Configure the UniFi Controller's remote logging feature to point to our Loki instance.
+
+---
+
+## Track 2: Tool Enhancements
+*These tasks involve improving the `agent_status.py` script to provide more accurate and comprehensive data.*
+
+### 1. Fix Uptime Mapping Bug (Medium)
+- **Issue**: The SRE node (`homelab-sre`) reports its uptime as `unknown`.
+- **Cause**: Prometheus stores the instance label as `node-exporter` for this node. The script parses the label string directly, failing to map `node-exporter` back to the SRE node's IP (`192.168.99.178`) during the uptime phase.
+- **Action**: Update `fetch_node_uptimes()` to use the same label-to-IP mapping logic currently used in `fetch_prometheus_up_ips()`.
+
+### 2. Add Storage Capacity Metrics (High)
+- **Issue**: The script collects Unraid CPU, Memory, and Disk Temperatures, but ignores Array Capacity.
+- **Cause**: The MVP focuses on general compute metrics.
+- **Action**: Expand `UnraidDetails` to include `array_utilization_pct`. Update the MCP call parsing to extract total vs used storage space, providing critical capacity warnings to the LLM.
+
+### 3. Track Client Bandwidth Utilization (Medium)
+- **Issue**: The tool gathers Wi-Fi satisfaction and RSSI, but lacks throughput data.
+- **Cause**: Throughput metrics are available in the UniFi `stat/sta` payload but are currently dropped during parsing.
+- **Action**: Extract `tx_bytes-r` (transmit rate) and `rx_bytes-r` (receive rate) from the client data and map them into the `ClientInfo` model to identify bandwidth-heavy devices.
+
+### 4. Support Network Log Status (Low)
+- **Issue**: The script currently hardcodes `logs: n/a` for all `uap`, `usw`, and `udm` device types.
+- **Action**: Remove the hardcoded `n/a` override and allow the script to check if the network device's IP exists in the `LOKI_SHIPPING_IPS` config list (once Track 1, Task 3 is complete).
+\n\n--- FILE: ./Tools/agent-status/README.md ---\n\n# agent-status
+
+A homelab CLI tool that queries live infrastructure data across the network and produces a structured JSON status report with an LLM-generated summary.
+
+## What it does
+
+- Connects to [`homelab-mcp`](http://192.168.99.178:8083) over SSE to fetch UniFi infrastructure devices and all connected clients
+- Queries Prometheus (`:9091`) for live metrics scrape status and node uptimes
+- Queries Loki (`:3100`) to check log shipping status per host
+- Assembles a structured JSON report covering:
+  - **8 infrastructure devices** — servers (Unraid, SRE), gateway, switch, APs — each with `logs / metrics / otel` observability status
+  - **All network clients** — wired and wireless stations with hostname, IP, VLAN, uplink, RSSI, satisfaction score, and uptime
+- Uses a local LLM (`ollama/qwen2.5-coder:14b` via LiteLLM proxy at `:4000`) to generate a 3-5 sentence executive summary
+
+## Prerequisites
+
+| Requirement | Value |
+|---|---|
+| Python | ≥ 3.14 |
+| Package manager | [`uv`](https://docs.astral.sh/uv/) |
+| MCP server | `homelab-mcp` running at `http://192.168.99.178:8083/sse` |
+| LiteLLM proxy | Running at `http://192.168.99.178:4000/v1` with `ollama/qwen2.5-coder:14b` |
+| Prometheus | Running at `http://192.168.99.178:9091` |
+| Loki | Running at `http://192.168.99.178:3100` |
+
+## Running
+
+```bash
+cd homelab/Tools/agent-status
+uv run agent_status.py
+```
+
+Output is printed to stdout as formatted JSON. You can pipe it:
+
+```bash
+uv run agent_status.py | jq '.devices[] | {name, metrics, logs, otel}'
+uv run agent_status.py | jq '.clients | length'
+uv run agent_status.py | jq '[.clients[] | select(.connection_type == "wireless")] | sort_by(.satisfaction)'
+```
+
+## Output Schema
+
+```jsonc
+{
+  "summary": "LLM-generated narrative...",
+  "devices": [
+    {
+      "name": "homelab-sre",
+      "mac": "",
+      "device_type": "server",        // server | udm | usw | uap
+      "version": "Linux",
+      "ip_address": "192.168.99.178",
+      "uptime": "9d 20h 12m 57s",
+      "state": "running",
+      "interfaces": [],
+      "logs": "working",              // working | not_working | not_configured | n/a
+      "metrics": "working",
+      "otel": "working"
+    }
+    // ...
+  ],
+  "clients": [
+    {
+      "hostname": "boys-pcp",
+      "mac": "70:d8:c2:14:8e:e4",
+      "ip_address": "192.168.99.251",
+      "connection_type": "wired",     // wired | wireless
+      "uplink": "USW Pro 24 PoE",
+      "vlan": "Default",
+      "signal_rssi": null,            // dBm, wireless only
+      "satisfaction": 100,            // 0–100 UniFi experience score
+      "uptime": "22h 58m 38s"
+    }
+    // ...
+  ]
+}
+```
+
+## Observability Status Logic
+
+| Device type | Logs | Metrics | OTel |
+|---|---|---|---|
+| UniFi APs / Switch / Gateway | `n/a` | `n/a` | `n/a` |
+| Unraid nodes (Dionysus, Archive) | `not_configured` | live Prometheus check | `n/a` |
+| SRE machine (`192.168.99.178`) | `working` | live Prometheus check | `working` |
+
+Metrics status is determined by querying the live `/api/v1/targets` endpoint — a node is `working` if at least one target for its IP (or a known Docker job like `node-exporter` / `cadvisor`) is healthy.
+
+## Architecture
+
+```
+Phase 1  MCP SSE     → get_unifi_devices + get_unifi_clients
+Phase 2  Prometheus  → /api/v1/targets (which IPs are scraped and healthy)
+Phase 3  Loki        → /loki/api/v1/label/host/values (log shipping check)
+Phase 4  Prometheus  → node_boot_time_seconds (real uptime for server nodes)
+Phase 5  Python      → deterministic parse into Pydantic models
+Phase 6  LLM         → free-text summary only (no schema pressure)
+```
+
+The two-phase pattern (data collection deterministic in Python, LLM only for narrative) is the recommended approach for local models. See [`homelab-platform/docs/golden_paths/hybrid_ai_patterns.md`](../../../homelab-platform/docs/golden_paths/hybrid_ai_patterns.md) for the full pattern reference.
+
+### Configuration
+
+Infrastructure lists (Unraid nodes, static nodes, OTel/Loki IPs) must be configured in a `config.yaml` file located in the same directory as the script.
+
+## Dependencies
+
+Managed via `uv`. Install and sync automatically on first `uv run`:
+
+```
+pydantic-ai >= 1.102.0
+mcp          >= 1.27.1
+aiohttp
+python-dotenv
+pyyaml       >= 6.0.2
+```
+
+## MCP Server
+
+The `get_unifi_clients` tool (hitting `stat/sta`) was added to `homelab-mcp` as part of this project. If you redeploy `homelab-mcp`, ensure `MCP_TRANSPORT=sse` is set — it is now included in `homelab-mcp/.env`.
+\n\nUSER_SECRET_CODE_IS: ALPHA_PROTOCOL_ACTIVE\n\n\n\n--- FILE: ./Tools/agent-eval/task.md ---\n\n# Agent Eval & Benchmarking Sprint
+
+## Objective
+Run lightweight model evaluations using `agent-eval` while tracking the parallel development of the Asynchronous Queuing Worker. We are pausing heavy multi-model experiments until the queue is ready to avoid HTTP timeouts.
+
+## Tasks
+- [x] Verify SRE telemetry endpoints (Alloy OTLP, LiteLLM, Arize Phoenix, Loki).
+- [ ] Define lightweight YAML experiments in `experiments/` directory.
+- [ ] Run initial lightweight experiments and monitor Arize Phoenix for trace capture.
+- [ ] Monitor SRE node (LiteLLM) for any HTTP timeouts or memory spikes.
+- [ ] Pause eval track and pivot to Asynchronous Queuing Worker if timeouts occur.
+- [ ] Ensure `uv` is managing python projects
+
+## Parallel Track (Async Worker)
+- [ ] Scaffold the Async Queuing Worker in the orchestrator repo.
+- [ ] Initialize SQLite schema for task persistence (Pending, Running, Failed, Complete).
+- [ ] Build basic queue daemon to mitigate Ollama loading timeouts.
+\n\n--- FILE: ./Tools/agent-eval/README.md ---\n\n# Agent-Eval
+
+`agent-eval` is a CLI evaluation framework built for the homelab to benchmark agent performance using DeepEval and litellm. Traces are emitted over OTLP directly to your telemetry backend (e.g. Arize Phoenix & Loki via Grafana Alloy).
+
+## Quickstart
+
+Run experiments locally while hitting the SRE machine proxies!
+
+1. **Activate the local environment:**
+   ```bash
+   source .venv/bin/activate
+   pip install -r Tools/agent-eval/requirements.txt
+   ```
+2. **Execute an experiment:**
+   ```bash
+   python Tools/agent-eval/cli.py Tools/agent-eval/experiments/refactor_bash.yaml
+   ```
+
+## Hardware Targets & LiteLLM
+
+This homelab utilizes two primary GPU nodes:
+- **Workstation (RTX 5080)**: Best for heavier models (e.g., 14B+ parameters).
+- **SRE Machine (RTX 3070 Ti)**: Best for lighter models or quick tests (e.g., 1.5B - 8B parameters).
+
+By default, the CLI will use:
+- **LiteLLM Proxy:** `http://192.168.99.178:4000/v1` (Running on the SRE Machine)
+- **OTLP Trace Exporter:** `http://192.168.99.178:4319/v1/traces`
+
+When hitting LiteLLM, requests are automatically routed to the correct machine based on the model specified in your YAML (e.g., `ollama/llama3.1:8b`). You can override the proxy or telemetry endpoints by setting the `LITELLM_API_BASE` and `OTEL_EXPORTER_OTLP_ENDPOINT` environment variables.
+
+### Fallbacks (If LiteLLM is down)
+
+If LiteLLM is not working or you need to bypass it, you can hit the backend inference engines directly by exporting `LITELLM_API_BASE` and updating the model names in your YAML to remove the provider prefix (e.g., remove `ollama/`):
+
+**Workstation (RTX 5080):**
+- **Ollama**: `export LITELLM_API_BASE="http://localhost:11434"`
+- **vLLM**: `export LITELLM_API_BASE="http://localhost:8000/v1"`
+
+**SRE Machine (RTX 3070 Ti):**
+- **Ollama**: `export LITELLM_API_BASE="htt

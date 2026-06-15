@@ -1,0 +1,13 @@
+experiment_name: "Single-Agent Blog Creation Baseline"
+workflow: "single_agent"
+system_prompt: "You are an expert technical writer and developer advocate."
+models_to_test:
+  - "ollama/llama3.1:8b"
+  - "ollama/qwen2.5-coder:14b"
+  - "ollama/mistral:latest"
+judge_model: "ollama/qwen2.5-coder:14b"
+test_cases:
+  - name: "Multi-Agent Patterns Blog Post"
+    input_file: "examples/inputs/multi-agent-patterns.md"
+    task_prompt: "Convert the provided README into an engaging blog post about Multi-Agent Patterns. Include a catchy title, headings, and a concluding summary."
+    expected_output_criteria: "The output must have a catchy title. It must mention at least 3 of the multi-agent patterns described in the source. It must contain headings. It must end with a concluding summary paragraph."

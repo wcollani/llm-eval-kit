@@ -1,0 +1,11 @@
+typer
+litellm[proxy]
+deepeval
+opentelemetry-api
+opentelemetry-sdk
+opentelemetry-exporter-otlp
+arize-phoenix
+pyyaml
+pydantic
+pytest-asyncio
+aiohttp

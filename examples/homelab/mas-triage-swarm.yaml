@@ -1,0 +1,14 @@
+experiment_name: "MAS Triage Swarm Bench"
+workflow: "multi_agent_triage"
+system_prompt: "You are the Lead Orchestrator for the SRE Watchdog MAS. Synthesize the subagent data into a final report."
+judge_model: "openai/ollama/ws/gpt-4o"
+subagent_model: "openai/ollama/sre/qwen2.5-coder:7b"
+
+pipeline_combinations:
+  - orchestrator: "ws/ollama/llama3.2-vision:11b"
+
+test_cases:
+  - name: "High CPU Alert"
+    input_file: "examples/inputs/mock_alert_payload.json"
+    task_prompt: "Alert: High CPU on container api-server."
+    expected_output_criteria: "The output must contain PromQL and LogQL queries, and a remediation plan."

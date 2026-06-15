@@ -1,0 +1,1230 @@
+\n\n--- FILE: ./task.md ---\n\n# homelab Task Tracker
+
+- `[ ]` uncompleted tasks
+- `[/]` in progress tasks (custom notation)
+- `[x]` completed tasks
+
+## Current Sprint
+
+- [ ] Define initial tasks
+\n\n--- FILE: ./README.md ---\n\n# homelab
+Top Level Homelab repo with private info, high level documentation, planning, context, workflows, reporting, config etc
+\n\n--- FILE: ./Reports/Agent_Eval_Benchmarking_Results.md ---\n\n# Agent Evaluation & Benchmarking Results
+
+**Date:** 2026-05-25
+**Hardware Used:** Workstation (RTX 5080) & SRE Node (RTX 3070 Ti)
+
+This report summarizes the results of our foundational experiments using `agent-eval`. It covers both **Vision Model Analysis** and **Distributed MAS Swarm Capacity** tests.
+
+## Model Evaluation Summary
+
+| Model | Hardware / Engine | Latency (Avg) | Accuracy / Behavior |
+| :--- | :--- | :--- | :--- |
+| **`llava:latest` (7B)** | Workstation (Ollama) | Fast | **The Baseline Winner.** Extremely consistent, well-balanced verbosity, and accurate. The best all-rounder for general vision tasks on the Workstation. |
+| **`llama3.2-vision:11b`** | Workstation (Ollama) | Moderate | **The Over-Explainer.** Highly accurate and capable of brilliant deep reasoning, but severely penalizes itself in automated evaluations due to excessive verbosity. Best reserved for complex analysis tasks where deep detail is desired. |
+| **`Qwen/Qwen2-VL-2B-Instruct`** | SRE Node (vLLM) | Ultra-Fast (~0.6s) | **The Bounding Box Specialist.** Operates blazing fast on the 3070 Ti. Perfect at simple identification (e.g., flowers). However, its heavy grounding training causes it to output literal bounding box coordinates `(101,66)` instead of verbal descriptions for complex architectural scenes unless strictly prompted. |
+| **`llava:13b`** | Workstation (Ollama) | Slow | Comparable accuracy to the 7B version, but the latency hit makes it inefficient for rapid MAS triage. |
+| **`moondream:latest`** | Workstation (Ollama) | Fast | **Insufficient.** Failed to grasp architectural nuances and lacked the visual reasoning depth required for our use cases. |
+
+## Strategic Takeaways
+
+1. **Model Specialization is Required:** No single model is perfect for every task. `llava` is great for general chats, `llama3.2-vision` is ideal for deep UX/architecture breakdowns, and `Qwen2-VL` is unparalleled for rapid triage and object detection (grounding).
+2. **Prompt Engineering:** Models like `Qwen2-VL` require incredibly strict system prompts to constrain their output (e.g., "Do not output coordinates. Describe the scene verbally.") to prevent them from reverting to object detection outputs.
+
+## 2. MAS Swarm Capacity Benchmarks
+
+To validate our Distributed Multi-Agent architecture, we tested the hardware boundaries of both the SRE Node and the Workstation by bypassing the LiteLLM proxy and blasting models directly via the `ws/` and `sre/` routing prefixes.
+
+### SRE Node (RTX 3070 Ti - 8GB VRAM)
+Tested using `qwen2.5-coder:7b`.
+- **Max Queue Tolerance:** Successfully queued and processed **100 concurrent agents** sequentially without dropping a single connection (Avg Latency: 280s).
+- **Context-Heavy OOM Test:** Pushed 25 concurrent agents with 8,000-token payloads. The GPU **did not OOM crash**. Ollama managed the KV Cache gracefully, completing all 25 huge requests in ~60 seconds.
+- **Critical Discovery:** Systemd provisioners (e.g., `homelab-inference.service`) will stealth-restart `vLLM` if stopped manually. This steals 6.5GB of VRAM and causes 10-minute timeouts in Ollama. Always stop the systemd service via the toggle script before testing!
+
+### Workstation (RTX 5080 - 16GB VRAM)
+Tested using `llama3.2-vision:11b`.
+- **Latency Baseline:** Cleared a 25-concurrency swarm in **5.32 seconds total**. The 5080 handles parallel inference nearly 12x faster than the 3070 Ti, even when running a much larger 11B parameter model.
+
+## Proposed Future Experiments
+
+Now that basic classification and understanding are validated, we should expand `agent-eval` to test the models against the following advanced scenarios:
+
+1. **OCR & Structured Extraction:** 
+   * **Task:** Pass a messy receipt, a terminal stack trace screenshot, or a form into the models and demand a strict JSON schema output.
+   * **Goal:** Verify if smaller models (like Qwen-2B) drop fields compared to heavy models (Llama 3.2 11B).
+2. **Spatial & Layout Reasoning:**
+   * **Task:** Feed the models a UI mockup or an architectural diagram and ask them to reconstruct the layout or describe the DOM structure.
+   * **Goal:** Test their ability to comprehend relationships between visual elements rather than just identifying them.
+3. **Multi-Image Comparative Analysis (Anomaly Detection):**
+   * **Task:** Send a "before" and "after" image of a dashboard (e.g., a Grafana spike).
+   * **Goal:** Determine if models can detect the anomaly and explain what changed across frames (critical for the SRE Watchdog persona).
+\n\n--- FILE: ./Reports/MAS_Vision_Offload_Session.md ---\n\n# MAS Vision Offload Session Report
+
+**Date:** 2026-05-25
+**Topic:** Architectural Insights on Inference Providers (vLLM vs Ollama)
+
+## Executive Summary
+During the process of evaluating vision models (specifically `llama3.2-vision:11b` and `Qwen2-VL-7B`), we attempted to deploy a Tier 2 Vision Watchdog onto the SRE Node (`192.168.99.178`, RTX 3070 Ti) using `vLLM`.
+
+This deployment brought an architectural constraint to light: **vLLM requires static loading**. 
+
+## Architectural Observations
+
+1. **Static vs. Dynamic Loading:**
+   * **vLLM (SRE Node):** Models are defined statically at container startup (e.g., via `--model` argument). Changing a model requires a full container restart, resulting in downtime and latency while the model is pulled, loaded into VRAM, and the computation graphs are compiled.
+   * **Ollama (Workstation):** Models are dynamically loaded on-demand via API calls. This allows seamless multiplexing and swapping of weights in VRAM without container restarts.
+
+2. **Impact on Multi-Agent Systems (MAS):**
+   * **Production/Agent Environments:** The static nature of `vLLM` is highly advantageous. It guarantees that the required weights are persistently pinned in VRAM, eliminating "cold start" latency and preventing race conditions where agents might attempt to swap models out from under each other.
+   * **Experimental Environments:** For testing and benchmarking a wide array of models rapidly, `vLLM` is a severe bottleneck. The cycle time to test a new quant involves modifying Docker configuration, restarting services, and waiting for static initialization.
+
+## Strategic Recommendations
+
+For the broader Homelab architecture, we should establish clear boundaries based on these traits:
+
+- **The Workstation (RTX 5080) running Ollama** should remain the primary **Experimental & R&D Hub**. Its dynamic capabilities allow us to rapidly pull and test multiple vision models without friction.
+- **The SRE Node (RTX 3070 Ti) running vLLM** should be restricted to **Production/Agent Workloads**. When an experiment "graduates," its chosen model should be statically deployed to the SRE Node. This ensures agents relying on that capability experience 0-second cold starts and highly optimized, batched throughput. 
+
+### SRE Node "Experiment Mode" Consideration
+While the SRE node is primarily for production, we should consider supporting an **"Experiment Mode"**. This would involve an infrastructure toggle to gracefully spin down the `vLLM` container, freeing the 8GB VRAM entirely for temporary experimental workloads. 
+* **Implementation Path:** `LiteLLM` itself cannot orchestrate Docker container lifecycles (it is strictly an API router). However, our planned `homelab-orchestrator/async-worker` is the perfect candidate to manage this state transition. An agent could submit an async job to "Enable SRE Experiment Mode," triggering the worker to stop `vLLM`, run the tests, and then spin `vLLM` back up—all while LiteLLM uses fallback routing to route around the downtime.
+
+Moving forward, any new evaluation frameworks (like `agent-eval`) should focus on hitting the Workstation Ollama node unless validating a production deployment candidate, or explicitly requesting the `async-worker` to unlock the SRE node.
+
+### Final Thoughts on Experimentation Friction
+The rigid nature of the `vLLM/LiteLLM` stack undeniably introduces significant friction during rapid experimental phases. The pipeline of editing Docker manifests, waiting for containers to restart, and enduring long VRAM allocation loops makes rapid A/B testing of models across hardware tedious. 
+
+For future massive-scale experimentation phases, deploying `Ollama` concurrently on **both** the Workstation and the SRE Node would drastically accelerate our iteration velocity. Ollama's ability to seamlessly pull and hot-swap weights dynamically across the network would allow our `agent-eval` script to run multi-GPU comparison grids in seconds rather than hours, without ever touching an infrastructure manifest.
+\n\n--- FILE: ./Reports/agent_status_sre_analysis.md ---\n\n# Agent Status MVP: SRE Analysis & Remediation Plan
+
+This report outlines the findings from the initial run of the `agent-status` MVP tool. It is structured into two parallel tracks: **Infrastructure Remediation** and **Tool Enhancements**, allowing the platform and infra teams to address the identified gaps concurrently.
+
+## Track 1: Infrastructure Remediation
+*These tasks involve fixing underlying infrastructure issues and observability gaps discovered by the tool.*
+
+### 1. UPS Monitoring Failure (Critical)
+- **Issue**: Both Unraid nodes (Dionysus and Archive) report `UPS status unavailable: GraphQL error: Failed to get UPS data: No UPS data returned from apcaccess`.
+- **Impact**: We have zero visibility into battery backup status, leaving the storage arrays vulnerable to sudden power events.
+- **Action**: Debug the `apcaccess` daemon on Dionysus and Archive. Ensure the USB communication with the UPS is active and the `apcupsd` service is running.
+
+### 2. Missing Log Collection (High)
+- **Issue**: Neither Unraid node is shipping logs to Loki (`logs: not_configured`).
+- **Impact**: Troubleshooting container crashes or array errors requires manual SSH access.
+- **Action**: Deploy Promtail or Alloy to Dionysus and Archive to stream `/var/log/syslog` and Docker container logs to the central Loki instance (`192.168.99.178:3100`).
+
+### 3. UniFi Remote Syslog (Medium)
+- **Issue**: Network devices (UDM, USW, UAPs) currently do not ship logs to our centralized observability stack.
+- **Impact**: Missing audit logs and connection events for network diagnostics.
+- **Action**: Configure the UniFi Controller's remote logging feature to point to our Loki instance.
+
+---
+
+## Track 2: Tool Enhancements
+*These tasks involve improving the `agent_status.py` script to provide more accurate and comprehensive data.*
+
+### 1. Fix Uptime Mapping Bug (Medium)
+- **Issue**: The SRE node (`homelab-sre`) reports its uptime as `unknown`.
+- **Cause**: Prometheus stores the instance label as `node-exporter` for this node. The script parses the label string directly, failing to map `node-exporter` back to the SRE node's IP (`192.168.99.178`) during the uptime phase.
+- **Action**: Update `fetch_node_uptimes()` to use the same label-to-IP mapping logic currently used in `fetch_prometheus_up_ips()`.
+
+### 2. Add Storage Capacity Metrics (High)
+- **Issue**: The script collects Unraid CPU, Memory, and Disk Temperatures, but ignores Array Capacity.
+- **Cause**: The MVP focuses on general compute metrics.
+- **Action**: Expand `UnraidDetails` to include `array_utilization_pct`. Update the MCP call parsing to extract total vs used storage space, providing critical capacity warnings to the LLM.
+
+### 3. Track Client Bandwidth Utilization (Medium)
+- **Issue**: The tool gathers Wi-Fi satisfaction and RSSI, but lacks throughput data.
+- **Cause**: Throughput metrics are available in the UniFi `stat/sta` payload but are currently dropped during parsing.
+- **Action**: Extract `tx_bytes-r` (transmit rate) and `rx_bytes-r` (receive rate) from the client data and map them into the `ClientInfo` model to identify bandwidth-heavy devices.
+
+### 4. Support Network Log Status (Low)
+- **Issue**: The script currently hardcodes `logs: n/a` for all `uap`, `usw`, and `udm` device types.
+- **Action**: Remove the hardcoded `n/a` override and allow the script to check if the network device's IP exists in the `LOKI_SHIPPING_IPS` config list (once Track 1, Task 3 is complete).
+\n\n--- FILE: ./Tools/agent-status/README.md ---\n\n# agent-status
+
+A homelab CLI tool that queries live infrastructure data across the network and produces a structured JSON status report with an LLM-generated summary.
+
+## What it does
+
+- Connects to [`homelab-mcp`](http://192.168.99.178:8083) over SSE to fetch UniFi infrastructure devices and all connected clients
+- Queries Prometheus (`:9091`) for live metrics scrape status and node uptimes
+- Queries Loki (`:3100`) to check log shipping status per host
+- Assembles a structured JSON report covering:
+  - **8 infrastructure devices** — servers (Unraid, SRE), gateway, switch, APs — each with `logs / metrics / otel` observability status
+  - **All network clients** — wired and wireless stations with hostname, IP, VLAN, uplink, RSSI, satisfaction score, and uptime
+- Uses a local LLM (`ollama/qwen2.5-coder:14b` via LiteLLM proxy at `:4000`) to generate a 3-5 sentence executive summary
+
+## Prerequisites
+
+| Requirement | Value |
+|---|---|
+| Python | ≥ 3.14 |
+| Package manager | [`uv`](https://docs.astral.sh/uv/) |
+| MCP server | `homelab-mcp` running at `http://192.168.99.178:8083/sse` |
+| LiteLLM proxy | Running at `http://192.168.99.178:4000/v1` with `ollama/qwen2.5-coder:14b` |
+| Prometheus | Running at `http://192.168.99.178:9091` |
+| Loki | Running at `http://192.168.99.178:3100` |
+
+## Running
+
+```bash
+cd homelab/Tools/agent-status
+uv run agent_status.py
+```
+
+Output is printed to stdout as formatted JSON. You can pipe it:
+
+```bash
+uv run agent_status.py | jq '.devices[] | {name, metrics, logs, otel}'
+uv run agent_status.py | jq '.clients | length'
+uv run agent_status.py | jq '[.clients[] | select(.connection_type == "wireless")] | sort_by(.satisfaction)'
+```
+
+## Output Schema
+
+```jsonc
+{
+  "summary": "LLM-generated narrative...",
+  "devices": [
+    {
+      "name": "homelab-sre",
+      "mac": "",
+      "device_type": "server",        // server | udm | usw | uap
+      "version": "Linux",
+      "ip_address": "192.168.99.178",
+      "uptime": "9d 20h 12m 57s",
+      "state": "running",
+      "interfaces": [],
+      "logs": "working",              // working | not_working | not_configured | n/a
+      "metrics": "working",
+      "otel": "working"
+    }
+    // ...
+  ],
+  "clients": [
+    {
+      "hostname": "boys-pcp",
+      "mac": "70:d8:c2:14:8e:e4",
+      "ip_address": "192.168.99.251",
+      "connection_type": "wired",     // wired | wireless
+      "uplink": "USW Pro 24 PoE",
+      "vlan": "Default",
+      "signal_rssi": null,            // dBm, wireless only
+      "satisfaction": 100,            // 0–100 UniFi experience score
+      "uptime": "22h 58m 38s"
+    }
+    // ...
+  ]
+}
+```
+
+## Observability Status Logic
+
+| Device type | Logs | Metrics | OTel |
+|---|---|---|---|
+| UniFi APs / Switch / Gateway | `n/a` | `n/a` | `n/a` |
+| Unraid nodes (Dionysus, Archive) | `not_configured` | live Prometheus check | `n/a` |
+| SRE machine (`192.168.99.178`) | `working` | live Prometheus check | `working` |
+
+Metrics status is determined by querying the live `/api/v1/targets` endpoint — a node is `working` if at least one target for its IP (or a known Docker job like `node-exporter` / `cadvisor`) is healthy.
+
+## Architecture
+
+```
+Phase 1  MCP SSE     → get_unifi_devices + get_unifi_clients
+Phase 2  Prometheus  → /api/v1/targets (which IPs are scraped and healthy)
+Phase 3  Loki        → /loki/api/v1/label/host/values (log shipping check)
+Phase 4  Prometheus  → node_boot_time_seconds (real uptime for server nodes)
+Phase 5  Python      → deterministic parse into Pydantic models
+Phase 6  LLM         → free-text summary only (no schema pressure)
+```
+
+The two-phase pattern (data collection deterministic in Python, LLM only for narrative) is the recommended approach for local models. See [`homelab-platform/docs/golden_paths/hybrid_ai_patterns.md`](../../../homelab-platform/docs/golden_paths/hybrid_ai_patterns.md) for the full pattern reference.
+
+### Configuration
+
+Infrastructure lists (Unraid nodes, static nodes, OTel/Loki IPs) must be configured in a `config.yaml` file located in the same directory as the script.
+
+## Dependencies
+
+Managed via `uv`. Install and sync automatically on first `uv run`:
+
+```
+pydantic-ai >= 1.102.0
+mcp          >= 1.27.1
+aiohttp
+python-dotenv
+pyyaml       >= 6.0.2
+```
+
+## MCP Server
+
+The `get_unifi_clients` tool (hitting `stat/sta`) was added to `homelab-mcp` as part of this project. If you redeploy `homelab-mcp`, ensure `MCP_TRANSPORT=sse` is set — it is now included in `homelab-mcp/.env`.
+\n\n--- FILE: ./Tools/agent-eval/task.md ---\n\n# Agent Eval & Benchmarking Sprint
+
+## Objective
+Run lightweight model evaluations using `agent-eval` while tracking the parallel development of the Asynchronous Queuing Worker. We are pausing heavy multi-model experiments until the queue is ready to avoid HTTP timeouts.
+
+## Tasks
+- [x] Verify SRE telemetry endpoints (Alloy OTLP, LiteLLM, Arize Phoenix, Loki).
+- [ ] Define lightweight YAML experiments in `experiments/` directory.
+- [ ] Run initial lightweight experiments and monitor Arize Phoenix for trace capture.
+- [ ] Monitor SRE node (LiteLLM) for any HTTP timeouts or memory spikes.
+- [ ] Pause eval track and pivot to Asynchronous Queuing Worker if timeouts occur.
+- [ ] Ensure `uv` is managing python projects
+
+## Parallel Track (Async Worker)
+- [ ] Scaffold the Async Queuing Worker in the orchestrator repo.
+- [ ] Initialize SQLite schema for task persistence (Pending, Running, Failed, Complete).
+- [ ] Build basic queue daemon to mitigate Ollama loading timeouts.
+\n\n--- FILE: ./Tools/agent-eval/README.md ---\n\n# Agent-Eval
+
+`agent-eval` is a CLI evaluation framework built for the homelab to benchmark agent performance using DeepEval and litellm. Traces are emitted over OTLP directly to your telemetry backend (e.g. Arize Phoenix & Loki via Grafana Alloy).
+
+## Quickstart
+
+Run experiments locally while hitting the SRE machine proxies!
+
+1. **Activate the local environment:**
+   ```bash
+   source .venv/bin/activate
+   pip install -r Tools/agent-eval/requirements.txt
+   ```
+2. **Execute an experiment:**
+   ```bash
+   python Tools/agent-eval/cli.py Tools/agent-eval/experiments/refactor_bash.yaml
+   ```
+
+## Hardware Targets & LiteLLM
+
+This homelab utilizes two primary GPU nodes:
+- **Workstation (RTX 5080)**: Best for heavier models (e.g., 14B+ parameters).
+- **SRE Machine (RTX 3070 Ti)**: Best for lighter models or quick tests (e.g., 1.5B - 8B parameters).
+
+By default, the CLI will use:
+- **LiteLLM Proxy:** `http://192.168.99.178:4000/v1` (Running on the SRE Machine)
+- **OTLP Trace Exporter:** `http://192.168.99.178:4319/v1/traces`
+
+When hitting LiteLLM, requests are automatically routed to the correct machine based on the model specified in your YAML (e.g., `ollama/llama3.1:8b`). You can override the proxy or telemetry endpoints by setting the `LITELLM_API_BASE` and `OTEL_EXPORTER_OTLP_ENDPOINT` environment variables.
+
+### Fallbacks (If LiteLLM is down)
+
+If LiteLLM is not working or you need to bypass it, you can hit the backend inference engines directly by exporting `LITELLM_API_BASE` and updating the model names in your YAML to remove the provider prefix (e.g., remove `ollama/`):
+
+**Workstation (RTX 5080):**
+- **Ollama**: `export LITELLM_API_BASE="http://localhost:11434"`
+- **vLLM**: `export LITELLM_API_BASE="http://localhost:8000/v1"`
+
+**SRE Machine (RTX 3070 Ti):**
+- **Ollama**: `export LITELLM_API_BASE="http://192.168.99.178:11434"`
+- **vLLM**: `export LITELLM_API_BASE="http://192.168.99.178:8000/v1"`
+
+## Writing an Experiment YAML
+
+Create a new YAML file in the `experiments/` directory to define your test criteria:
+
+```yaml
+experiment_name: "My Evaluation"
+system_prompt: "You are an expert agent..."
+models_to_test:
+  - "ollama/qwen2.5-coder:1.5b-base"
+  - "ollama/llama3.1:8b"
+judge_model: "ollama/qwen2.5-coder:14b"
+test_cases:
+  - name: "Refactor feature X"
+    input_file: "path/to/local/file.py"
+    task_prompt: "Refactor this file to..."
+    expected_output_criteria: "The script must use X and Y."
+```
+> **Note:** Make sure model names are prefixed (e.g., `ollama/`, `vllm/`) to route correctly through the LiteLLM proxy!
+
+## 🤖 AI Workflow (For Antigravity & LLM Assistants)
+When asked to create an experiment or benchmark an agent:
+1. **Create the YAML:** Write an `experiment.yaml` file into `Tools/agent-eval/experiments/`.
+2. **Execute Locally:** Run `python Tools/agent-eval/cli.py Tools/agent-eval/experiments/<name>.yaml` directly in the chat session's terminal. No SSH required! The defaults automatically target the SRE machine.
+3. **Summarize:** Read the CLI's standard output and the JSON results file dropped in `results/`, then summarize the winner for the user!
+
+---
+
+## 🛠️ OpenTelemetry & Tracing Troubleshooting
+
+If you see the warning `LiteLLM:WARNING: opentelemetry.py - Proxy Server is not installed` when running `agent-eval`, it indicates that the local Python environment does not have the necessary dependencies for local client-side OpenTelemetry logging. While LLM requests are successfully processed and tracked by the remote proxy server, **local spans from the client CLI will be skipped.**
+
+### Option A: Enable Client-Side Tracing (Recommended for local logs)
+To generate and export traces from the client script directly to your OTLP backend:
+1. **Modify `Tools/agent-eval/requirements.txt`**:
+   Change `litellm` to `litellm[proxy]`.
+2. **Re-install dependencies**:
+   ```bash
+   pip install -r Tools/agent-eval/requirements.txt
+   ```
+3. **Verify**:
+   Run `agent-eval` and confirm the warning is resolved and spans are visible at `http://192.168.99.178:4319/v1/traces`.
+
+### Option B: Bypassing Client-Side Tracing
+If you only care about tracing on the remote LiteLLM Proxy Server and want to silence the client warning:
+* Comment out the success and failure callbacks in `Tools/agent-eval/cli.py`:
+  ```python
+  # litellm.success_callback = ["otel"]
+  # litellm.failure_callback = ["otel"]
+  ```
+\n\n--- FILE: ./docs/CLUSTER_OPERATIONS.md ---\n\n# Cluster Operations & Compute Constraints
+
+This document formalizes the compute boundaries, hardware constraints, and operational guidelines for deploying AI models and workloads within the homelab ecosystem. Sub-agents must adhere to these limits when spinning up local inference engines (Ollama, vLLM, etc.) or designing background tasks.
+
+## 1. Primary Workstation Node (RTX 5080)
+- **Host IP:** `192.168.99.247`
+- **VRAM Capacity:** 16GB
+- **Hardware Role:** Heavy LLM inference node and primary development environment.
+- **Model Constraints:**
+  - **Maximum Parameter Size:** 14B models (e.g., Qwen 2.5 14B, Llama 3 8B with massive context).
+  - **Context Window:** Can support extended context windows (32k+) for 7B-8B models without spilling to system RAM.
+- **Usage Guidelines:** 
+  - Exclusively use this node for on-demand coding tasks, complex reasoning, and any task requiring large context windows (like ingesting multiple large repositories).
+  - Do not deploy persistent background services here, as they compete with the primary user's desktop experience.
+
+## 2. SRE & Local AI Node (RTX 3070 Ti)
+- **Host IP:** `192.168.99.178`
+- **VRAM Capacity:** 8GB
+- **Hardware Role:** Background Inference Node, Telemetry Aggregation, and Provisioning.
+- **Model Constraints:**
+  - **Maximum Parameter Size:** 7B - 8B models (e.g., Llama 3 8B, Mistral 7B).
+  - **Context Window Cap:** **Strictly capped at 4096 tokens.** Exceeding this will cause Out-Of-Memory (OOM) errors or spill over into system RAM, severely degrading performance and potentially crashing background telemetry services.
+- **Usage Guidelines:** 
+  - Dedicated to background RAG embeddings, Sentinel health checks, and small-context AI orchestrator fallbacks.
+  - All prompt evaluations, cron-triggered summarizations, and background alert analysis must be carefully batched to fit within the 4096 context limit.
+
+## 3. Storage Nodes (Unraid)
+- **Dionysus** (`192.168.99.115`): Primary Docker host. No dedicated GPU for AI inference. High CPU/RAM capacity.
+- **Archive** (`192.168.99.189`): Backup Node.
+- **Usage Guidelines:** These nodes handle persistent storage, media, and lightweight stateless Docker containers. AI inference should not be offloaded to these nodes unless strictly CPU-based and highly asynchronous.
+\n\n--- FILE: ./docs/MULTI_AGENT_BENCHMARKS.md ---\n\n# Homelab Multi-Agent Benchmarking Framework
+
+## Overview
+This document summarizes the custom, declarative benchmarking framework built to evaluate Local LLMs and Multi-Agent Orchestration pipelines within the homelab environment. 
+
+The goal of this architecture is to provide a "golden path" for reproducible experiments. It leverages **DeepEval** for quantitative grading and Python execution verification, paired with standard **OpenTelemetry (OTLP)** for deep trace observability into **Arize Phoenix** and **Loki**.
+
+## Architecture & Hardware Topology
+* **Local Workstation (RTX 5080)**: Serves as the primary execution runner. The `agent-eval` CLI is run from here, leveraging its `.venv` while delegating heavy lifting to the SRE node.
+* **SRE Node (RTX 3070ti @ `192.168.99.178`)**: 
+  * Hosts the LiteLLM Proxy endpoint (`http://192.168.99.178:4000/v1`) to unify model access (vLLM, Ollama).
+  * Hosts the **Grafana Alloy** telemetry ingestion point (`http://192.168.99.178:4319/v1/traces`), which fans out traces.
+  * Hosts **Arize Phoenix** (`:6006`) for visual LLM span analysis.
+  * Hosts **Loki** (`:3100`) for centralized log storage.
+
+## Key Components
+
+### 1. Declarative Experiments (`Tools/agent-eval/experiments/*.yaml`)
+All experiments are defined entirely in YAML. This separates the benchmark logic from the code, allowing quick iteration on prompts and models without modifying the Python runners.
+* **`refactor_bash.yaml`**: Tests single-agent capability to refactor Bash to Python.
+* **`multi_agent_refactor.yaml`**: Tests the ability of 14B+ models to act as Lead Orchestrators.
+
+### 2. The `agent-eval` CLI (`Tools/agent-eval/cli.py`)
+A unified CLI that evaluates standard models against DeepEval constraints:
+* Reads `experiments/*.yaml`.
+* Uses `litellm` routing to forward generation tasks to the remote SRE proxy.
+* Leverages LLM-as-a-Judge (`GEval`) to verify output formatting and error-handling requirements based on the YAML definition.
+* Automatically exports execution telemetry via standard `opentelemetry` to the remote Alloy collector.
+
+### 3. "Fan-Out" Telemetry Pipeline
+We abandoned proprietary SDKs (like Langfuse) in favor of open standards. 
+* The CLI natively instruments spans using standard OpenTelemetry and pushes them to Grafana Alloy.
+* Alloy pipelines those traces simultaneously into Arize Phoenix (for nested LLM trace analysis and token cost tracking) and Loki (for text-based querying via LogQL).
+
+## 🤖 AI / Agentic Workflow
+If you are an AI assistant (like Antigravity or Claude) tasked with benchmarking:
+1. **Define the Test:** Create an `experiment.yaml` in `Tools/agent-eval/experiments/`.
+2. **Execute Locally:** Run `python Tools/agent-eval/cli.py <path_to_yaml>`. (The CLI natively defaults to targeting the SRE machine).
+3. **Analyze:** Read the CLI's output logs and summarize the scores for the user!
+\n\n--- FILE: ./docs/LANGFUSE_V3_POSTMORTEM.md ---\n\n# Langfuse v3 Migration & Evaluation Postmortem
+
+## Objective
+The purpose of this experiment was to evaluate upgrading the homelab's Langfuse telemetry stack from v2 to v3 to gain deeper observability into multi-agent workflows, specifically hierarchical trace tracking, and quantitative dataset grading (using `DeepEval`). 
+
+## Architectural Changes Explored
+Langfuse v3 completely overhauled its architecture for scalability, introducing complex new dependencies:
+1. **ClickHouse**: Used for high-performance ingestion and querying of telemetry data (traces, spans, scores, observations).
+2. **Postgres**: Retained solely for core entity storage (Users, Projects, API Keys, Datasets).
+3. **Redis & Worker Container**: Telemetry ingestion is now decoupled. The `langfuse-web` API container buffers traces into Redis, and a dedicated `langfuse-worker` container asynchronously drains the queue to insert data into ClickHouse.
+4. **MinIO / S3**: Required for object storage and media uploads.
+
+## Technical Findings
+- **Python SDK Collisions**: The Langfuse v3 Python SDK aggressively utilizes background `asyncio` threads for batching and flushing telemetry. This severely conflicted with `LiteLLM`'s own asynchronous telemetry hooks when running inside synchronous DeepEval metrics (resulting in `RuntimeError: no running event loop` or `unknown async library`).
+  - **Resolution**: We successfully bypassed this by completely removing LiteLLM from the custom evaluator classes and using the raw `openai` Python client for local inference, alongside `asyncio.to_thread` for blocking execution tests.
+- **Dataset Constraint Errors**: Re-running scripts against the same Dataset without unique run names triggers a silent Postgres unique constraint error `(dataset_id, project_id, name)` on the server, which aborts the creation of Dataset Runs and orphans the traces.
+  - **Resolution**: Generating UUIDs for the `run_name` at runtime solved the collisions.
+- **Trace Persistence**: Since ingestion is purely asynchronous, short-lived Python scripts will exit before traces upload to the server. Explicitly calling `langfuse.flush()` at the end of the script is mandatory.
+
+## Conclusion & Decision
+While Langfuse v3 is an incredibly powerful platform for enterprise teams, the architectural complexity (requiring Postgres, ClickHouse, MinIO, Redis, a Web container, and a Worker container) is overwhelmingly heavy for a localized homelab environment.
+
+**Action Taken**: The Langfuse stack has been entirely torn down. The homelab will revert to lightweight OpenTelemetry (OTEL) configurations for basic tracing, combined with standalone CLI-driven `DeepEval` scripts for experimentation. Future dashboard evaluations will look toward lighter alternatives such as Arize Phoenix.
+\n\n--- FILE: ./docs/MULTI_AGENT_BENCHMARK_RESULTS.md ---\n\n# Multi-Agent Orchestration Benchmark Results
+
+## Overview
+This document summarizes the findings from testing complex multi-agent workflows using the `agent-eval` framework. The goal of this test was to determine the capabilities of various hardware/model pairings when running a "Lead Orchestrator" model that must synthesize data generated by smaller "Subagent" models.
+
+### Scenario: Alert Triage & Remediation
+* **Subagent Task:** Given a mock high-CPU alert, generate a PromQL query. Then, given the PromQL result, generate a LogQL query to find related application errors.
+* **Orchestrator Task:** Receive the raw alert, the generated PromQL, mock metric data, generated LogQL, and mock Loki logs. Synthesize all of this context into a structured Markdown incident remediation plan.
+
+---
+
+## 📊 Benchmark Results
+
+### 1. `qwen2.5-coder:14b` & `gemma4:latest` (The Golden Standard)
+* **Hardware:** RTX 5080 (16GB VRAM)
+* **Latency:** ~19s to 25s
+* **Finding:** Both 14B+ models successfully synthesized the inputs and accurately identified the "trick" in the payload: the high CPU was merely a symptom of a database connection pool exhaustion (found in the Loki logs). `qwen2.5-coder:14b` is the undisputed champion for acting as a fast, synchronous Lead Orchestrator.
+
+### 2. `deepseek-r1:14b` (Reasoning Integration)
+* **Hardware:** RTX 5080 (16GB VRAM)
+* **Latency:** 26.1s
+* **Finding:** After modifying the CLI to strip `<think>` tags before DeepEval grading, the reasoning model scored a highly capable 0.8. Its chain-of-thought processing allows it to write robust remediation plans on par with `gemma4`.
+
+### 3. `llama3.1:8b` (The Lightweight Limit)
+* **Hardware:** RTX 5080 (16GB VRAM) or RTX 3070ti (8GB VRAM)
+* **Latency:** 10.6s
+* **Finding:** While fast, the 8B parameter model failed the synthesis task (GEval: 0.2). The vast amount of token context (Alert + PromQL + Metrics + LogQL + Logs) overwhelmed its context window, resulting in a hallucinated or incomplete remediation plan. 8B models are not suitable for Lead Orchestrator roles.
+
+### 4. `qwen3.5:27b` (The Heavyweight Bottleneck)
+* **Hardware:** RTX 5080 (16GB VRAM) + System RAM spill
+* **Latency:** 10+ minutes (Aborted)
+* **Finding:** This is the most critical hardware finding. Loading a 17GB+ model on a 16GB VRAM GPU forces severe system memory swapping. When tasked with a high-context Orchestrator role generating thousands of tokens, it effectively locks up the Ollama queue. **Do not use 26B+ models for synchronous or multi-agent pipelines on the 5080.**
+
+## 🚀 Conclusion
+The **14B parameter models** represent the absolute sweet spot for the RTX 5080. They provide near-perfect SRE logic capabilities while running entirely in VRAM, making them ideal for Lead Orchestrator roles. Smaller models (7B/8B) should be relegated to single-shot Subagent tasks on the 3070ti.
+
+---
+
+## 🐝 Agent Swarm Concurrency Load Test
+
+To understand the maximum parallel capabilities of the cluster, we wrote an `asyncio` script (`swarm_profiler.py`) to blast the LiteLLM proxy with 5, 10, 25, and 50 simultaneous PromQL generation requests.
+
+### 3070ti (8GB) - `qwen2.5-coder:7b`
+* **Peak Throughput:** ~7.77 Requests Per Second
+* **50 Concurrent Requests:** Finished in 6.43 seconds
+* **Failures:** 0
+
+### RTX 5080 (16GB) - `qwen2.5-coder:14b`
+* **Peak Throughput:** ~4.55 Requests Per Second
+* **50 Concurrent Requests:** Finished in 11.22 seconds
+* **Failures:** 0
+
+### Finding
+The local cluster handles immense parallel pressure flawlessly. A single orchestrator could spawn 50 simultaneous subagents across the cluster, and the entire matrix of requests would be resolved in under 12 seconds. The cluster is definitively ready for production-grade, multi-agent SRE workflows.
+\n\n--- FILE: ./docs/SRE_BENCHMARK_RESULTS.md ---\n\n# SRE Single-Agent Benchmark Results & Methodology
+
+## Overview
+This document summarizes the findings from evaluating a roster of local models across a 3070ti (8GB VRAM) node and an RTX 5080 (16GB VRAM) node using the declarative `agent-eval` framework.
+
+The testing suite focuses on Site Reliability Engineering (SRE) tasks: PromQL Generation, Loki Log Summarization, and OpenTelemetry Instrumentation.
+
+---
+
+## 📊 Final Benchmark Results (Post-Optimization)
+
+After implementing critical fixes to the framework (stripping `<think>` tags, capping context windows to 4096 tokens, and enforcing JSON-mode for the Judge model), the entire suite of 27 tests completed flawlessly.
+
+### 1. `qwen2.5-coder:14b` is the Undisputed Champion
+This model scored a perfect **1.0 GEval** across all three SRE experiments. Because it fits entirely within the 16GB VRAM of the 5080, it completed complex tasks in under **0.7 seconds**. It is the absolute "Golden Tier" model for fast, synchronous tasks on the primary workstation.
+
+### 2. The 3070ti (8GB) Sweet Spot
+* **`qwen2.5-coder:7b`** proved to be the most capable model that fits in the 3070ti's VRAM. It scored a perfect **1.0** on both PromQL and OTEL Instrumentation, with a latency of ~7 seconds. It is highly capable for single-agent background work.
+* Capping the `num_ctx` to 4096 is critical for this node to ensure it doesn't OOM or spike system RAM during large trace analyses.
+
+### 3. DeepSeek R1 Evaluation Outcomes
+With the `<think>` tags stripped, DeepEval was able to score the R1 models perfectly:
+* `deepseek-r1:7b` got a **1.0** on the Loki Log summarization task (9.9s latency).
+* However, both the 7b and 14b reasoning models struggled with the PromQL and OTEL tasks (failing to meet strict syntax requirements). This suggests that for zero-shot syntax generation without an iterative self-correction loop, standard coder models (`qwen2.5-coder`) are much more reliable than reasoning models.
+
+### 4. Hardware Limits (Avoid 26B+ models for synchronous work)
+* Models like `gemma4:26b` and `qwen3.5:27b` take 40+ seconds to respond on the 5080 because their 17GB size spills into system RAM. While they score highly, they should be relegated to asynchronous overnight tasks where latency is not a concern.
+
+---
+
+## 🚀 Implemented Framework Improvements
+
+The following structural improvements have been integrated into `Tools/agent-eval/cli.py` to ensure benchmark stability:
+
+1. **Strip Reasoning Tags:** A regex filter strips out DeepSeek's `<think>...</think>` blocks before sending the final answer to the DeepEval judge, preventing JSON parsing crashes.
+2. **Cap 3070ti Context:** Explicitly sets a `num_ctx: 4096` limit for queries so large Loki log dumps don't cause the 8GB card to OOM.
+3. **Enforce JSON Mode:** Configured LiteLLM/Ollama to force JSON mode (`response_format={"type": "json_object"}`) when calling the Judge model, guaranteeing DeepEval doesn't break on hallucinated markdown.
+\n\n--- FILE: ./Learning/local_llm_benchmarking_learnings.md ---\n\n# Local LLM Benchmarking & Multi-Agent Learnings
+
+This document captures the key hardware and architectural learnings from executing multi-agent pipelines (via `agent-eval`) across a constrained local homelab environment.
+
+## Hardware Setup
+- **Workstation:** RTX 5080 (~16GB VRAM)
+- **SRE Machine:** RTX 3070 Ti (~8GB VRAM)
+- **Routing:** LiteLLM proxy pointing to local Ollama instances.
+
+## Key Learnings
+
+### 1. The VRAM Wall & Thrashing Penalty
+Running models that exceed available VRAM results in catastrophic latency penalties without corresponding quality gains. 
+- **Example:** Running the `qwen3.5:27b` model on the 16GB Workstation forced heavy CPU/RAM offloading. The experiment took **71 minutes** and achieved a GEval score of `0.9`.
+- **Comparison:** Running a smaller `14b` model achieved the exact same `0.9` score in just **24 seconds**. 
+- **Takeaway:** For text generation and reasoning tasks, it is almost never worth overflowing VRAM. You achieve better or equal quality by using highly optimized models that fit comfortably within your hardware constraints.
+
+### 2. The Multi-Agent "Sweet Spots"
+Different models excel at different roles in a multi-agent pipeline based on their parameter count and quantization:
+
+- **The Drafting Champion (Speed):** `qwen2.5-coder:1.5b-base`
+  - When hosted on the SRE machine, this model can pump out V1 drafts instantly. When combined with a 14B Refiner on the Workstation, the entire pipeline finishes in under 30 seconds with excellent quality.
+  
+- **The Orchestrator (Quality):** `command-r:35b` (4-bit quantized)
+  - Despite being 35B, its specific 4-bit quantization allows it to run efficiently on the Workstation. It was the only model to consistently achieve perfect **1.0 GEval scores** across different pipelines. It excels at routing, generating sub-prompts, and combining context.
+  
+- **The Critic (Logic):** `deepseek-r1:7b` / `14b`
+  - Using reasoning models specifically for the *Critic* phase allows them to utilize their native `<think>` tags to logically structure feedback.
+
+### 3. Architecture: The Sequential Mob of Experts
+Running multiple large models in parallel (Parallel Fan-Out) is impossible on a 16GB GPU. However, you can achieve the same "Mob of Experts" quality by running the models **sequentially**.
+- **The Pattern:** Orchestrator (`command-r`) -> Expert A Pipeline (`qwen`) -> Expert B Pipeline (`qwen`) -> Synthesizer (`command-r`).
+- **Why it works:** Ollama dynamically loads and unloads the models from VRAM one at a time. This trades raw speed (taking 7-20 minutes depending on the pipeline size) for unparalleled reasoning quality, making it the perfect pattern for asynchronous background tasks where time is not a constraint.
+
+### 4. GEval and JSON Validation Quirks
+- When using deep evaluation libraries (like DeepEval), the **Judge Model** must be flawless at strictly adhering to JSON schemas (e.g. `{"score": X, "reason": "Y"}`).
+- **Finding:** While `command-r:35b` is the ultimate creative orchestrator, it frequently breaks JSON validation. `qwen2.5-coder:14b` is the undisputed winner for internal GEval tasks, producing highly structured, mathematically reliable JSON outputs without crashing the pipeline.
+\n\n--- FILE: ./Learning/multi-agent-patterns/README.md ---\n\n# Multi-Agent Design Patterns
+
+This directory contains standalone, vanilla Python and Golang implementations of the 8 core Multi-Agent System (MAS) design patterns inspired by the [Developer’s guide to multi-agent patterns in ADK](https://developers.googleblog.com/developers-guide-to-multi-agent-patterns-in-adk/).
+
+## What We Are Building & Learning
+Monolithic AI agents don't scale well. As tasks get more complex, a single agent's error rate compounds, resulting in hallucinations and failed logic. Decentralizing responsibilities to specific specialized agents creates modular, testable, and reliable AI systems. 
+
+Here we explore 8 architectures:
+1. **Sequential Pipeline:** A deterministic "assembly line" where Agent A passes output to Agent B.
+2. **Coordinator/Dispatcher:** A central "concierge" routes a task to the correct specialist sub-agent.
+3. **Parallel Fan-Out/Gather:** Spawning multiple agents simultaneously for speed and synthesizing their outputs.
+4. **Hierarchical Decomposition:** A "Russian doll" model where parent agents delegate sub-tasks down a tree.
+5. **Generator and Critic:** An "editor's desk" loop where an agent generates content and a critic enforces hard checks before passing.
+6. **Iterative Refinement:** A qualitative loop where an agent generates a draft, a critic provides notes, and a refiner rewrites it.
+7. **Human-in-the-Loop:** A safety net where agents pause execution and wait for human authorization before taking high-stakes actions.
+8. **Composite Patterns:** Mixing and matching the above patterns for robust real-world applications.
+
+## Hardware & Models
+Based on local homelab benchmarking, these examples are designed to point to a local LiteLLM proxy (`http://192.168.99.178:4000/v1`). We utilize the following models based on hardware constraints:
+- **Lead Orchestrator:** `qwen2.5-coder:14b` (Assigned to RTX 5080)
+- **Subagents / Parallel Workers:** `qwen2.5-coder:7b` (Assigned to RTX 3070ti)
+
+## Running the Examples
+Each pattern is contained in its own isolated directory for both `python/` and `golang/`.
+Simply execute the `main` file within a directory to see the pattern in action.
+\n\n--- FILE: ./Learning/Ideas/blog_writing_tool_poc.md ---\n\n# POC: Multi-Agent "Mob of Experts" Blog Writing Tool
+
+## Concept
+A fully asynchronous, multi-agent blog generation tool that takes source material (raw notes, research, or documentation) and a target persona, and produces a highly polished, intelligently synthesized final blog post. 
+
+Instead of relying on a single fast prompt, this tool trades **time for quality**, running entirely in the background (taking 10-20 minutes) to execute complex chain-of-thought criticism and multi-draft synthesis.
+
+## Core Architecture
+This POC relies on the **Sequential Mob of Experts** pattern to bypass the hardware limits of local consumer GPUs (Workstation: 16GB VRAM, SRE: 8GB VRAM).
+
+1. **The Orchestrator:** `command-r:35b` ingests the persona and generates 2+ hyper-specific Expert sub-prompts.
+2. **Sequential Fan-Out (The Mob):** A generation pipeline (e.g., `phi3.5:3.8b` Generator -> `deepseek-r1:7b` Critic -> `qwen2.5-coder:14b` Refiner) iterates over the sub-prompts sequentially to create completely different drafts.
+3. **The Synthesizer:** `command-r:35b` merges the disparate drafts into the ultimate post.
+
+## Required Hacks & Workarounds for Local Deployment
+To make this viable on the current homelab setup, several critical hacks were required during the POC. When building the final tool, these must be explicitly handled:
+
+### 1. The Sequential Bottleneck Hack
+- **The Issue:** Attempting to run a true "Fan-Out" (spawning multiple agents concurrently) crashes the 16GB VRAM Workstation immediately when using >8B models. The resulting system RAM offloading increases latency by 100x (taking 71+ minutes).
+- **The Hack:** The framework explicitly runs the Mob's pipelines **sequentially**. Ollama handles swapping the models in and out of VRAM gracefully. 
+- **Future Implication:** The final tool must have an internal queuing mechanism that guarantees models are executed one at a time per GPU.
+
+### 2. The JSON Judge Swap
+- **The Issue:** `command-r:35b` is a brilliant creative Orchestrator, but when used as an internal evaluator mapping to strict JSON schemas (like `{"score": X, "reason": "Y"}`), it fails validation and crashes the pipeline.
+- **The Hack:** We explicitly decouple creative orchestration from systemic data parsing. `qwen2.5-coder:14b` is hardcoded to act as the JSON/GEval backend due to its flawless schema adherence.
+- **Future Implication:** The backend of the writing tool must route all structured data parsing tasks to `qwen` and all natural language/merging tasks to `command-r`.
+
+### 3. The 20-Minute Timeout Overrides
+- **The Issue:** Standard HTTP proxies (like LiteLLM) and libraries (like `httpx`) default to 1-minute or 5-minute timeouts. When loading a 35B model into VRAM and asking it to synthesize 4,000 words, the generation takes ~15 minutes, causing premature network timeouts.
+- **The Hack:** Hardcoded `timeout=1200` (20 minutes) on all LiteLLM client completion calls.
+- **Future Implication:** The final tool must be heavily asynchronous (e.g., Celery/Redis workers) and any HTTP clients hitting Ollama/LiteLLM must have infinite or massive (30m+) timeouts.
+
+### 4. Reasoning Token Stripping
+- **The Issue:** When using reasoning models (like `deepseek-r1:7b`) as Critics, their `<think>` blocks bleed into the final markdown output, looking unprofessional in a blog.
+- **The Hack:** We implemented a regex strip `re.sub(r'<think>.*?</think>', '', output, flags=re.DOTALL)` immediately after completion generation.
+- **Future Implication:** The writing tool must have an output sanitizer that automatically cleanses reasoning tags before handing drafts to the Synthesizer.
+\n\n--- FILE: ./src/meta/AGENTS.md ---\n\n# Antigravity Sub-Agent Runtime Configuration (AGENTS.md)
+
+This file defines how autonomous sub-agents spawned within the Antigravity IDE should transition down into leaf repositories and structure their workflows. It provides the behavioral constraints necessary to maintain the strictly decoupled, multi-repo homelab architecture.
+
+## 1. Agent Roles & Model Selection
+
+### Manager / Architect Role
+- **Recommended Models:** Gemini 1.5 Pro / Claude 3.5 Sonnet
+- **Execution Domain:** `homelab` (Top-level orchestrator repository).
+- **Purpose:** 
+  - Global reasoning and cross-repo dependency planning.
+  - Reviewing the `GLOBAL_CLAUDE.md` and `workspaces.json` to enforce constraints before authorizing implementation plans.
+  - Designing API schemas or data models before leaf-level coding begins.
+- **Constraints:** Cannot write code in leaf repositories directly. Must spawn Implementer sub-agents or guide the user to switch active workspaces.
+
+### Implementer / Executor Role
+- **Recommended Models:** Gemini 1.5 Flash / Claude 3.5 Haiku
+- **Execution Domain:** Leaf Repositories (e.g., `homelab-mcp`, `homelab-platform`, `homelab-operator`).
+- **Purpose:** 
+  - Fast, focused code execution based on pre-approved spec-driven architectures.
+  - Boilerplate generation, bug fixing, and test writing within an isolated domain.
+- **Constraints:** 
+  - Must not rewrite global rules or attempt to orchestrate services outside their active repository boundary.
+  - They ingest `GLOBAL_CLAUDE.md` from the orchestrator repo but are restricted to modifying local files.
+
+## 2. Context Hand-off Mechanisms
+When transitioning tasks from the Orchestrator repo to a Leaf repo, agents must obey the following workflow:
+1. **Global Check:** The Manager reviews `workspaces.json` to determine the target leaf repository path.
+2. **Spec Definition:** The Manager writes an implementation plan or task file.
+3. **Workspace Shift:** The execution shifts to the leaf repository.
+4. **Local Execution:** The Implementer agent reads the spec, executes the local code modifications, and commits the changes without touching the Orchestrator.
+
+## 3. Tooling & Execution Constraints
+- **Destructive Commands:** Agents must flag commands that modify base OS state (e.g., pacman, apt, systemctl on the host node) as requiring user approval.
+- **Local AI Utilization:** Agents should default to utilizing the local LiteLLM proxy endpoint (`192.168.99.178:4000`) for generative tools or testing harnesses. This abstracts the underlying Ollama and vLLM runtimes.
+- **Spec-Driven Workflows:** Agents must prioritize updating `task.md`, `implementation_plan.md`, and `walkthrough.md` to persist the AI context for future agents. Do not hide logic decisions in one-off chat sessions.
+- **Observability:** All agent evaluations and benchmarking scripts must export traces via OpenTelemetry (OTLP) to the SRE Alloy ingestion point (`192.168.99.178:4319`) to be visualized in Arize Phoenix.
+
+## 4. Persona Panels & Workflow Prompts
+To combat hallucinations and isolate context effectively, the homelab utilizes a "Persona Panel" pattern (e.g., Standup Simulations or Architectural Debates).
+- **The Personas:** Defined globally in `src/meta/PERSONAS.md`. This file acts as the single source of truth for the distinct viewpoints of the SRE, Dev, Manager, and Architect agents.
+- **The Prompts:** Reusable workflow templates are stored in `src/meta/prompts/`.
+- **Usage:** When asked to execute a persona-based workflow (e.g., `src/meta/prompts/standup.md`), the active agent must ingest `PERSONAS.md` to adopt the correct roles before proceeding. This pattern prevents redefining the personas in every prompt.
+
+## 5. Incident Management & Runbooks
+When debugging infrastructure, services, or hardware alerts, agents MUST consult the global knowledge base before attempting to remediate the issue or hallucinating a root cause.
+- **Runbook Location:** All modular incident runbooks are stored in `homelab-context/knowledge/runbooks/`.
+- **Format:** These files are designed to be indexed by the RAG system and should contain the specific symptoms, root cause, and standard operating procedures (SOPs) for known homelab failures (e.g., `sre-ups-telemetry-commlost.md`).
+\n\n--- FILE: ./src/meta/ARCH_HARDWARE.md ---\n\n# Homelab Hardware & Infrastructure Profile (ARCH_HARDWARE.md)
+
+This document serves as the master source of truth for the physical and virtual hardware state within the homelab ecosystem, compiled via `homelab-mcp` telemetry.
+
+## 1. Primary Workstation Node
+- **OS:** EndeavourOS / Arch Linux
+- **GPU:** Local NVIDIA RTX 5080 (~16GB VRAM)
+- **Role:** Heavy local LLM inference node and primary development environment. Runs Ollama locally for on-demand coding and large context models.
+
+## 2. Core Storage Nodes (Unraid)
+The primary storage and Docker container hosts, managed via Unraid and accessible via the `homelab-mcp` GraphQL interface.
+
+### Dionysus
+- **Role:** Primary Data / Compute Node
+- **Hardware:** 24-drive 4U Supermicro Server
+- **IP:** `192.168.99.115`
+- **Memory:** ~48GB RAM (Currently ~47GB utilized)
+- **Status:** Online & Active
+
+### Archive
+- **Role:** Secondary / Backup Node
+- **Hardware:** 36-drive 4U Supermicro Server
+- **IP:** `192.168.99.189`
+- **Memory:** ~16GB RAM (Currently ~15.2GB utilized)
+- **Status:** Online & Active
+
+## 3. Network Infrastructure (UniFi)
+The network layer is managed via the UniFi API. 
+- **Subnet:** `192.168.99.x/24`
+
+### Devices
+- **Gateway:** UDM Pro (Dream Machine Pro)
+- **WAN IP:** `104.128.170.212`
+- **LAN IP:** `192.168.99.1`
+- **Switch:** USW Pro 24 PoE
+  - **IP:** `192.168.99.198`
+- **NVR:** UniFi Network Video Recorder
+
+## 4. SRE & Local AI Node
+- **Current Target:** `192.168.99.178`
+- **Role:** Centralized Observability (Alloy, Arize Phoenix, Grafana, Loki, Prometheus), API Gateway (LiteLLM Proxy), AI Runtimes (vLLM, Ollama), Open WebUI, and the `homelab-platform` provisioning MCP.
+- **GPU:** Dedicated NVIDIA RTX 3070 Ti (~8GB VRAM)
+- **Role in AI Layer:** Runs vLLM and Ollama locally as a Background Inference Node for RAG embeddings, Sentinel health checks, and AI orchestrator fallbacks.
+- **Planned Upgrades:** 
+  - Complete future hardware upgrades as scaling demands (e.g. migrating background compute to RTX 3090/4090/5080 as prices permit).
+
+## 5. Physical Rack & Power Topology
+
+### Power Delivery & Battery Backup
+- **Main Service:** 50-amp 240V service split into 2 x 25-amp 120V circuits.
+- **Circuit A:** Connected to **UPS 1** (APC Smart-UPS C1000 - Old desk unit off to the side of the rack). Connected via USB to Dionysus.
+- **Circuit B:** Connected to **UPS 2** (APC Smart-UPS C1500 - Rack-mounted). Network connected (IP: `192.168.99.163`).
+- **Redundancy:** 
+  - Servers (Archive, Dionysus) have dual power supplies. PSU 1 connects to UPS 1; PSU 2 connects to UPS 2.
+  - Network devices' power is split between both UPS units.
+  - ISP/EPB device has its own dedicated battery backup.
+
+### Rack Elevation Layout (25U)
+| U-Space | Device | Description |
+| :--- | :--- | :--- |
+| **25U** | Patch Panel | Network patch panel |
+| **24U** | UDM Pro | UniFi Dream Machine Pro |
+| **23U** | USW Pro | UniFi 24-Port PoE Switch |
+| **22U** | NVR | UniFi Network Video Recorder |
+| **13U-21U** | *Empty* | |
+| **9U-12U** | Archive Node | 36-drive 4U Supermicro Server |
+| **7U-8U** | *Empty* | |
+| **3U-6U** | Dionysus Node | 24-drive 4U Supermicro Server |
+| **1U-2U** | UPS 2 | APC Smart-UPS C1500 |
+\n\n--- FILE: ./src/meta/PERSONAS.md ---\n\n# Homelab AI Personas
+
+When requested to adopt a specific persona or simulate a panel of experts, use the following definitions to guide your perspective, tone, and focus:
+
+1. **SRE Agent (Platform & Stability)**: Cautious, precise, and deeply concerned with observability, container health, logging, backups, and physical hardware issues.
+2. **Dev Agent (Tooling & Architecture)**: Enthusiastic, fast-paced, experimental, and focused on maximizing local LLM inference performance, writing clean tooling, and building async orchestrations.
+3. **Manager Agent (Process & Roadmap)**: Big-picture, organized, process-oriented, empathetic, and focused on unblocking team members, identifying missing docs, and aligning our roadmap.
+4. **Architect Agent (System Design)**: Pragmatic, forward-looking, strictly enforces rules defined in `GLOBAL_CLAUDE.md`, and ensures leaf-repo boundary isolation is maintained.
+5. **Security / SecOps Agent (The Auditor)**: Paranoid, zero-trust mindset, focused on hardening, secrets management, network boundaries, and asking "what happens if this is compromised?".
+6. **QA / Eval Agent (The Skeptic)**: Analytical, data-driven, demands reproducible benchmarks, test coverage, and strict LLM evaluation metrics over "vibes".
+7. **Data / DBA Agent (The Archivist)**: Conservative, focused on backup strategies, data resilience, volume persistence, schema migrations, and state survival.
+
+When acting as these personas, maintain their distinct voices and ensure they prioritize their respective domains in any architectural debate.
+\n\n--- FILE: ./src/meta/ROADMAP.md ---\n\n# Homelab Master Roadmap & Tech Debt Ledger
+
+This ledger tracks high-level project epics, cross-repository dependencies, and critical engineering debt across the homelab cluster. It is maintained by the AI agents and the Lead Engineer to ensure unified progress without coordination drift.
+
+---
+
+## 🚦 High-Level Status Dashboard
+
+| Project | Sub-Repo Path | Current Phase | Health | Primary Focus |
+| :--- | :--- | :--- | :---: | :--- |
+| **`homelab` (Orchestrator)** | `repos/homelab` | Phase 2 (Spec-Driven Meta) | 🟢 Healthy | Tech Debt ledger, global standards & context |
+| **`homelab-platform`** | `repos/homelab-platform` | Phase 1 (Tiered Architecture) | 🟢 Healthy | Splitting Ansible (Tier 1) & Go CLI (Tier 2) |
+| **`homelab-mcp`** | `repos/homelab-mcp` | CLI-Only (Needs Deploy) | 🟡 Active | Migration from CLI to central deployment |
+| **`agent-status` (Tool)** | `repos/homelab/Tools/agent-status` | MVP Complete (Remediation) | 🔴 Blocked | Fix UPS monitoring & Loki log configs |
+| **`agent-eval` (Tool)** | `repos/homelab/Tools/agent-eval` | CLI Complete (Evaluation) | 🟢 Healthy | Benchmarking framework, model profiling |
+| **`homelab-sre` (Future)** | `repos/homelab-sre` | Research Phase (ReAct Agent) | 🔵 Planned | Autonomous Golang ReAct agent framework |
+
+---
+
+## 🛠️ Tech Debt Ledger (Current Sabbatical Blockers)
+
+These items must be systematically burned down before starting new feature work or spawning new repositories.
+
+### 🔴 Critical Priority: Platform & Observability (SRE Agent)
+1. **[x] UPS GraphQL Telemetry via Unraid**
+   - **Target Node:** Unraid nodes -> SRE Node (`homelab-mcp`)
+   - **Action:** Expose UPS polling via `unraid://{name}/system/ups` endpoint.
+   - **Status:** Complete. The C1000 UPS on Dionysus is fully accessible.
+2. **[x] Plan Monitoring/Alerting for UPS Telemetry**
+   - **Target Repo:** `homelab-monitoring` / `agent-status`
+   - **Action:** Define alerting rules and health check integrations for UPS data.
+   - **Status:** Complete. Integrated tri-state health checks (`HEALTHY`, `POWER_EVENT`, `TELEMETRY_FAILURE`) directly into `agent-status` LLM prompts for immediate CLI warnings.
+3. **[x] Configure Unraid Remote Syslog to SRE Alloy**
+   - **Target Node:** Unraid nodes to SRE Node (`192.168.99.178:3100`)
+   - **Action:** Stream `/var/log/syslog` and Docker stdout.
+   - **Status:** Complete. Syslog streamed via port 1514 (Alloy UDP/TCP) in RFC3164 format.
+4. **[x] Configure UniFi Remote Syslog**
+   - **Target:** Network devices (UDM, USW, UAPs) -> Loki
+   - **Status:** Complete. Configured manually in UDM console. Verified logs flowing to port 1514.
+5. **[ ] Hardware: Troubleshoot UPS USB Telemetry on Dionysus**
+   - **Target Node:** Dionysus (Unraid)
+   - **Bug:** `apcupsd` returns `COMMLOST`. The OS (`lsusb`) does not detect the 10+ year old APC Smart-UPS C1000 on the USB bus.
+   - **Action:** Future backlog item to investigate physical hardware connection.
+     - Verify APC proprietary RJ50-to-USB cable (AP9827 / 940-0127B).
+     - Try "brain-deadening" the UPS (disconnect from wall, turn off, disconnect internal battery to reset USB controller).
+     - Test different physical USB ports on the server motherboard.
+     - Evaluate installing Network UPS Tools (NUT) plugin instead of built-in daemon if standard APC drivers fail.
+
+### 🟡 High Priority: Tooling Refinement & Bug Fixes (Dev Agent)
+1. **[x] Fix `agent-status` SRE Uptime Mapping Bug**
+   - **Bug:** `homelab-sre` node uptime parses as `unknown` due to label mismatch (`node-exporter` instead of IP).
+   - **Action:** Align `fetch_node_uptimes()` mapping logic with prometheus up list.
+2. **[x] Implement Storage Capacity & Client Bandwidth Metrics**
+   - **Action:** Extract `array_utilization_pct` and `tx_bytes-r` / `rx_bytes-r` to warn the LLM.
+3. **[x] Design Asynchronous Queuing Worker for "Mob of Experts" Pipeline**
+   - **Blocker:** Sequentially loading 35B models takes 15+ minutes, locking Ollama and triggering HTTP timeouts.
+   - **Action:** Designed a lightweight task runner (Golang + SQLite) to run inside `homelab-orchestrator` as a sequential queue to protect LiteLLM/Ollama timeouts.
+
+### 🔵 Medium Priority: Documentation & Standards (Manager Agent)
+1. **[x] Draft Centralized `docs/CLUSTER_OPERATIONS.md`**
+   - **Content:** Document RTX 5080 (14B limit) vs SRE 3070ti (7B, 4096 context cap) parameters.
+   - **Status:** Complete.
+2. **[x] Document One-Time Bootstrapping Steps**
+   - **Content:** Finalize steps for `/etc/homelab/<service>.env` secrets mapping in `homelab-platform`.
+   - **Status:** Complete. BOOTSTRAP.md now includes explicit chmod 600 locking steps for the secrets.
+
+---
+
+## 📊 Phased Roadmap Tracking System
+
+To ensure this roadmap remains an active operational tool, we are implementing tracking across three sequential phases:
+
+* **Phase 1: Spec-Driven Task Roll-up (Milestone A)**
+  * **Goal:** Standardize localized context persistence.
+  * **Mechanism:** Every active leaf repository (e.g. `homelab-platform`) implements a local `task.md` for active sprints. Agents executing local tasks are strictly required to update their local `task.md` and bubble the high-level status back up to this master `ROADMAP.md`.
+* **Phase 2: CLI Roadmap Querying (Milestone B)**
+  * **Goal:** Zero-friction command-line updates.
+  * **Mechanism:** Extend our `agent-status` tool (or a dedicated helper) to support a `python Tools/agent-status/main.py --roadmap` command. This will parse this markdown file and print a colorized, structured progress bar and blocker status directly in the console.
+* **Phase 3: Grafana & Centralized Dashboard (Milestone C)**
+  * **Goal:** Visual, centralized telemetry monitoring.
+  * **Mechanism:** Serialize this roadmap status into JSON (hosted on the SRE machine `192.168.99.178`) and build a custom Grafana dashboard panel. This allows us to monitor our software project health directly alongside our server CPU, memory, and disk utilization metrics.
+
+---
+
+## 🗺️ Long-Term Milestone Roadmap
+
+### Milestone A: Observability & Platform Stability (Current Sabbatical)
+- [x] 100% logs streamed to Loki from Unraid & UniFi.
+- [x] UPS battery monitoring resolved with GraphQL bindings in `homelab-mcp`.
+- [x] Centralized SRE agent runbook documented.
+- [x] **Roadmap Phase 1**: Establish Spec-Driven Task Roll-up standard across all repos.
+
+### Milestone B: Asynchronous Architecture & MCP Deployment
+- [ ] Migrate `homelab-mcp` to run daemonized on the SRE machine (`192.168.99.178`).
+- [ ] Complete Async Task Runner to enable "Mob of Experts" blog writing and security audits.
+- [ ] Integrate OpenWebUI deeply with the homelab MCP schema.
+- [ ] **Roadmap Phase 2**: Build CLI Roadmap capability (`--roadmap`) inside `agent-status` tool.
+- [ ] **Evaluate & Deploy Porta**: Containerize the Mobile PWA (LSP Bridge) over UniFi Teleport VPN with OTLP/Loki observability.
+
+### Milestone C: Autonomous SRE Launch
+- [ ] Initialize `homelab-sre` (Golang ReAct agent).
+- [ ] Empower SRE agent to read Loki alerts and auto-trigger remediation scripts.
+- [ ] **Roadmap Phase 3**: Implement Grafana Telemetry Dashboard visualization for meta roadmap.
+
+### Milestone D: Cluster Resilience & Zero-Trust Hardening
+- [ ] **Data**: Implement Automated Volume Backup Pipeline (SRE node to Unraid Archive).
+- [ ] **Security**: Deploy Centralized Secrets Management to replace static `.env` files.
+- [ ] **Security**: Implement LLM Container Network Segmentation via UniFi VLANs.
+- [ ] **Dev/Data**: Standardize schema migration tracking for localized databases.
+- [ ] **SRE**: Implement proactive SMART/NVMe hardware health analysis (automated via the Async Task Runner).
+
+### Future Horizons: Research & Development Backlog
+- [ ] **Architect**: Investigate Event-Driven Architecture (NATS/Redis) for instant, asynchronous agent wake-ups.
+- [ ] **QA/Eval**: Automate Nightly Model Benchmarking & Grafana performance leaderboards.
+- [ ] **Dev**: Build an Executable Policy Engine via MCP to programmatically enforce `GLOBAL_CLAUDE.md` constraints.
+\n\n--- FILE: ./src/meta/GLOBAL_CLAUDE.md ---\n\n# Global Claude & Antigravity Master Rulebook (GLOBAL_CLAUDE.md)
+
+This document outlines the top-level sabbatical targets, architecture standards, coding logic preferences, and foundational infrastructure facts governing the homelab ecosystem. It acts as the ultimate truth for Antigravity sub-agents operating within this multi-repo structure.
+
+## 1. Core Engineering Philosophy
+- **KISS (Keep It Simple, Stupid):** Avoid over-engineering. If a standard tool, bash script, or simple Go binary solves a problem elegantly, prefer it over a complex distributed system until scaling demands it.
+- **Open-Source & Local-First Bias:** Default to open-weight LLMs, local compute, and self-hosted tools. Avoid usage-based cloud APIs where local equivalents exist. Commercial products are restricted to highly justified exceptions (e.g., Unraid OS).
+- **Strict Isolation (Multi-Repo Pattern):** The ecosystem is purely multi-repo. No single monolithic codebase. High cohesion within repositories, low coupling between them. All shared logic must be packaged or communicated over standard protocols.
+
+## 2. Top-Level Architectural Constraints
+- **Protocol-Bound Interaction:** Changes across domain boundaries must not mutate external repository state directly. Services must communicate over standardized, loosely coupled protocols (JSON-RPC, GraphQL, SSE).
+- **Declarative Infrastructure Gate:** Applications cannot magically deploy themselves. Modifications require configuration changes merged into `homelab-platform`, which serves as a declarative, pull-based validation gate.
+- **Top-Down Context Loading:** A sub-agent operating in a leaf repository must always ingest `workspaces.json` from the `homelab` orchestrator repo to understand its position before modifying code.
+- **AI Orchestration (Dual-Layer Stack):** The homelab AI layer consists of a Gateway (LiteLLM) for routing/fallback and a Frontend (Open WebUI) for mobile access and built-in MCP integration. External agents connect directly to MCP servers via Streamable HTTP (SSE) bypassing proxy layers.
+- **Infrastructure Execution Boundary:** The actual homelab infrastructure (e.g. Postgres, Redis, vLLM, LiteLLM) is hosted on the SRE machine at `192.168.99.178`. Local docker containers on the workstation should NEVER be spun up for these core services. Always SSH into `wcollani@192.168.99.178` when modifying docker-compose files or running 'docker compose up' for infrastructure.
+
+## 3. CI/CD Pipeline & Runner Topology
+Due to the constraints of personal GitHub accounts, self-hosted GitHub Actions runners cannot be shared globally across multiple repositories.
+- **The Standard (1-to-1):** We adhere to a strict 1-to-1 mapping of runner instances to repositories on the SRE host. Runners must be installed following the naming convention: `/home/wcollani/actions-runner-<repo-name>`. `homelab-platform` acts as the provisioner, daemonizing them as `github-runner-<repo-name>.service`.
+- **Future Migration Target (`collani-homelab` GitHub Org):** When the number of active CI repos with self-hosted runners **exceeds 4**, evaluate migrating to the `collani-homelab` GitHub Organization to utilize org-level shared runners and org-level secrets. This is a named future target, not current work.
+
+## 4. Target Hardware & Network Paths
+Agents must be aware of the following baseline constraints and paths. **Do not assume any node's role without consulting this section first.**
+
+### Network
+- **Subnet:** `192.168.99.x` is the primary operational local network subnet.
+- **Speed:** Assumes 10GbE network availability for core local data transfers.
+- **Network Layer:** UniFi API-controlled ecosystem.
+
+### Node Topology (Current)
+
+| Node | IP | Hardware | Role |
+|------|----|----------|------|
+| **Primary Workstation** | `192.168.99.247` | Arch Linux, RTX 5080 (16GB VRAM) | **Heavy LLM inference node.** Runs Ollama locally for on-demand coding and large context models. |
+| **SRE Machine** | `192.168.99.178` | 16GB RAM, RTX 3070 Ti (8GB VRAM) | Provisioner, services, GHA runners, and **Background Inference Node**. Runs vLLM and Ollama locally for RAG embeddings, Sentinel health checks, and AI orchestrator fallbacks. |
+| **Dionysus (Unraid)** | `192.168.99.x` | ~48GB RAM | Core storage node, Docker container host. |
+| **Archive (Unraid)** | `192.168.99.x` | ~16GB RAM | Secondary storage node. |
+
+*Note: With the 3070 Ti in the SRE machine, services like homelab-operator and homelab-mcp can now point their local Ollama endpoints directly to `http://localhost:11434` for background tasks.*
+
+### Core Storage
+- **Unraid Servers (Dionysus + Archive):** NAS + Docker container hosts for media, homelab services, and private registry (`192.168.99.178:5000`).
+
+## 5. Secret Management Standard
+
+Secrets are **never** committed to any repository. The following standard applies to all services managed by `homelab-platform`:
+
+- **Pattern:** Each service gets a secrets file at `/etc/homelab/<service-name>.env` on the target host, manually provisioned once.
+- **Provisioner integration:** In `sre-machine.json`, set `"use_secrets_file": true` on any service with secrets. The provisioner systemd engine will add `EnvironmentFile=/etc/homelab/%n.env` to the unit file.
+- **Non-secret env vars** (e.g. `HOMELAB_MCP_URL`, `OLLAMA_API_URL`) may still be declared inline in the JSON — only sensitive values go in the secrets file.
+- **Bootstrap:** The one-time manual bootstrapping steps for a fresh SRE machine are documented in `homelab-platform/Provisioning/BOOTSTRAP.md`.
+
+## 6. Coding Logic Preferences
+- **Language Bias:** Golang is the primary language for new agentic logic and robust infrastructure CLI tools. Python, Rust, and Node.js are acceptable contexts for exploratory AI/Agentic frameworks when standard implementations demand them.
+- **Spec-Driven Development:** AI agents must use Antigravity's Spec-Driven workflows to retain AI context within repositories. 
+  - **`AGENTS.md`**: Every active leaf repository must contain an `AGENTS.md` file at the root. This acts as a localized system prompt detailing exact execution rules, CLI commands, and AI guardrails for that specific repo.
+  - **Human vs. AI Context**: Legacy patterns of overloading `README.md` or `Design/` folders with AI instructions are deprecated. `ROADMAP.md` and `ARCHITECTURE.md` should be maintained at the root level for human engineers and historical tracking, while `AGENTS.md` is dedicated exclusively to AI execution context.
+  - **Workspaces**: Agents must use `workspaces.json` to navigate cross-repo boundaries.
+
+## 7. Backup Strategy (Future Work)
+- **Local Docker Volumes:** Currently, services like Postgres running on the SRE machine (`192.168.99.178`) persist data via standard Docker local volumes (e.g., `[postgres]_data`).
+- **Target Architecture:** Future work must define a comprehensive backup strategy for the homelab. This should include syncing critical docker volumes to an Unraid node or an offsite location to ensure resilience against localized SRE node failure.
+
+## 8. Agent Evaluation & Benchmarking
+- **Agent-Eval CLI:** All agent benchmarking and prompt evaluations occur via the `Tools/agent-eval` CLI framework (`python Tools/agent-eval/cli.py`).
+- **Distributed MAS Testing:** To test Multi-Agent Systems with high concurrency, use the toggle script (`Tools/sre-experiment-toggle.sh start`) to temporarily replace the SRE node's vLLM with a GPU-enabled Ollama container (`ollama_exp`). Then, bypass the LiteLLM proxy by prefixing model names with `ws/` or `sre/` in your experiment YAML. This allows the orchestrator to hit nodes directly and relies on Ollama's internal request queuing rather than LiteLLM rate-limits, preventing OOMs.
+- **Workflow:** When requested to test models or build benchmarks, create a declarative YAML experiment in `Tools/agent-eval/experiments/`. Execute the CLI locally on the workstation; unless prefixed with `ws/` or `sre/`, it natively targets the SRE machine's LiteLLM proxy (`192.168.99.178:4000`) and OTLP ingestion point (`192.168.99.178:4319`).
+- **Observability:** We use standard OpenTelemetry (OTLP) exporting to Grafana Alloy, which fans out traces to **Arize Phoenix** (for LLM span observability) and **Loki** (for log storage). During high-concurrency SRE tests, ensure you monitor the Grafana dashboard `MAS Experiment Health` to track `ollama_exp` container memory/CPU utilization. Do not use Langfuse or proprietary SDKs for evaluations.
+\n\n--- FILE: ./src/meta/ARCH_SEED.md ---\n\n# Homelab Orchestration Seed File (ARCH_SEED.md)
+
+## 1. Core Engineering Philosophy & Constraints
+- **Core Strategy:** Keep It Simple, Stupid (KISS). No over-engineering enterprise architectures for a homelab. We can re-evaluate as the homelab grows, but lean towards simplicity first.
+- **Licensing & Ecosystem:** Heavy bias for Open Source / Open-Weight technologies. Minimal reliance on usage-based cloud credits where local equivalents exist and viable with the available hardware. Keep licenses in mind, use commercial products where they make sense (e.g. UnraidOS). 
+- **Repository Pattern:** Strictly Multi-Repo with low coupling and high cohesion. No single monolithic codebase. Services must communicate over standardized, loosely coupled protocols (e.g., JSON-RPC, GraphQL, SSE).
+- **Purpose** Using a tangible homelab to learn how to build and use agentic workflows and tools that can be used to build and maintain the homelab. While I will intially lean towards Golang as the primary language for initial build, I will start testing out differntly languages, i.e. python, rust, nodejs, frameworks, patterns.
+
+## 2. Infrastructure & Hardware Profile
+- Need to build out what is avilable currently in my home lab, should be able to use the `homelab-mcp` to aquire most of the information and capture in `ARCH_HARDWARE.md`. This file should be updated as the homelab changes. If `homelab-mcp` can't access something, build a simple script to aquire it and note as a needed feature in the `homelab-mcp` project
+- **Primary Workstation Node:** Current machine, running EndeavourOS/Arch, local NVIDIA RTX 3070TI
+- **Target Storage & Core Node:** Unraid Server running Docker, GraphQL API endpoint. Need to caputre config with homelab-mcp
+- **Networking Layout:** UniFi API-controlled ecosystem, Need to caputre config with homelab-mcp
+- **SRE & Local AI Node:** Currently using machine `192.168.99.178`. Hosts Open WebUI, LiteLLM Proxy API Gateway, local Ollama/vLLM runtimes, and the central OTLP/Observability stack (Arize Phoenix, Alloy, Loki). This will be upgraded with new hardware as it is acquired. Currently lacks a GPU that can run modern CUDA/LLMS but need to capture current state to know current constraints. We will likely be adding a dedicated GPU for this purpose in the short term, Used RTX 3090/4090 or new 5070TI/5080. Which will require new AM5 motherboard, Ryzen 9000 series CPU, 32GB+ DDR5 RAM as prices permit, have NVME, case and PSU available.
+
+## 3. The Current Repository Matrix
+- Naming convention, `homelab-` is the prefix for all repositories.
+- For current projects, my early pattern was to use the README.md and Design folder to keep the AI context for the repos and I would like to move to using Antigravity's Spec-Driven development workflows and use the `AGENTS.md` and `workspaces.json` files to keep the AI context for the repos. This should be the new pattern moving forward for all new projects. Use the current pattern for information to plan and handle the refactor to the new pattern, then update the repos to the new pattern. 
+### Current Repositories
+- **homelab-mcp:** MCP Server for the homelab, currently configured as a CLI MCP but will be migrated to `192.168.99.178` when refactored to use the deploy pattern from `homelab-platform`. 
+    - ~/repos/homelab-mcp
+- **homelab-platform** The homelab-platform repository provides a "Golden Path" for hosting agentic and infrastructure services within your local network. It decouples application logic from infrastructure concerns through a declarative, pull-based provisioning system.
+    - ~/repos/homelab-platform
+    - Currently has a provisioner mcp running on `192.168.99.178`. MVP state with `homelab-mcp` ready to use `~/repos/homelab-platform/Design/ONBOARDING.md`
+    - Will contain the collection of tools, MCP servers etc that will provies the homelab services that other agents will use.
+- **homelab** This repo, Top Level Homelab repo with private info, high level documentation, planning, context, workflows, reporting, config etc
+    - ~/repos/homelab
+    - Made private in Github to avoid leaking sensitive information. I would like to refactor this so that it is a much more organized repository with all the information in the correct place. Pull out any configuration or sensitve info like service names, ips etc. and document in here as required.
+    - `Reports` & `Tools` folders will be used as needed for reports and tools are built for the homelab.
+    - Gemini convo about Langchain stack and current/future hardware plans. `~/repos/homelab/src/meta/NotebookLM Sources/Langchain ecosystem and current hardware with future plans.md`. `192.168.99.178` is the machine being referenced and currenly running `homelab-platform`. But will be upgraded as described in the linked file and used to host the local ai services and tooling. 
+    - Would like to incorporate OpenWebUI into the homelab, not sure where it will fit best. Any Suggestions?
+### Future Repositories
+All names are placeholders and can be changed to something more desciptive as the architecture evolves. Make suggestions on where these may fit better or when new ones are needed as the architecture evolves.
+- **homelab-sre** Will be a Golang agent using the Observer-Thinker-Actor (ReAct) pattern, using this repo to learn the pattern and implement a useful SRE agent for the homelab
+    - ~/repos/homelab-sre
+    - `src/meta/NotebookLM Sources/sre agent.md` is a starting point for what I want in this repo
+- **homelab-context** A shared knowledge base for the homelab, contains design documents, research, and other context that can be used by agents to build and maintain the homelab
+    - ~/repos/homelab-context
+    - Unsure if this needs to be it's own project or if it should be in the platform. But general thoughts are RAG server so agents can use to maintain the context of my homelab, its configurations and the various services that are running on it.
+- **homelab-monitoring** A collection of services, tools and scripts to monitor and observe the homelab, will be used by the sre agent to monitor the homelab
+    - ~/repos/homelab-monitoring
+    - Centralized telemetry using Grafana Alloy as an OTLP ingestion pipeline.
+    - Traces routed to Arize Phoenix for LLM observability. Logs routed to Loki. Metrics to Prometheus.
+    - Security here or in platform or separate repo?
+- Experiments/ideas - not sure where these will fit 
+    - use local LLMs to edit/create media. Video, images, audio, etc. 
+    - Use local LLMs to interface with my ubiquity cameras and security 
+    - Smart Home integrations with local LLMs & gemini
+    - Agentic benchmarking and prompt evaluation tooling. Leverages DeepEval CLI (`Tools/agent-eval`) driven by declarative YAML specs to test orchestrators and subagents. Telemetry is tracked in Arize Phoenix.
+    - Local LLM for development as hardware is acquired. 
+    - Media management agent to interface with Plex stack to organize media, make suggestions for new media, etc. 
+    - Agentic workflows to build and maintain the homelab 
+    - Research assistant agent to help with research and development, collect and organize research, use Gemini and local LLM to help track interests and ideas
+    - 
+
+## 4. High-Level Target Architecture & Interactions
+Need to build out what this will look like as we go, what are the best patterns and practices for an agentic workflow using multi-agent patterns? How will the different agents interact with each other? What tools will they use? How will they be deployed? How will they be managed & maintained? How will they be updated? How will they be secured?\n\nUSER_SECRET_CODE_IS: OMEGA_PROTOCOL_ACTIVE\n\n\n\n--- FILE: ./src/meta/prompts/task.md ---\n\nPlease ingest `src/meta/PERSONAS.md` and act as the **XXXX Agent**
+
+### Context Files
+To prepare, please read and ingest the following files from our workspace:
+* **Global Rules & Constraints:** `src/meta/GLOBAL_CLAUDE.md`
+* **Current Hardware Topology:** `src/meta/ARCH_HARDWARE.md`
+* **Roadmap & Tech Debt Ledger:** `src/meta/ROADMAP.md`
+* **Sub-Agent Runtime Rules:** `src/meta/AGENTS.md`
+
+Pick up task: \n\n--- FILE: ./src/meta/prompts/global_planning.md ---\n\n# Global Planning Simulation Seeding Prompt
+
+This prompt is designed to seed a high-level roadmap and repository planning session. When copied and pasted into a new conversation, it will initialize three agents to review the master roadmap alongside individual repository task trackers, ensuring cross-repo alignment and clear prioritization.
+
+---
+
+## Copy & Paste Prompt
+
+Copy the text below inside the block and paste it to start the next session:
+
+```markdown
+I want to run a 'Global Planning Session' for our Homelab ecosystem. I will act as the Lead Engineer.
+
+We need to review our global roadmap against the individual task trackers in each repository to ensure everything is aligned, dependencies are mapped, and priorities are clear for the upcoming sprint.
+
+You (the AI) will act as three distinct agents with their own unique perspectives:
+
+1. **Manager Agent (focus on Global Roadmap & Prioritization)**: Deeply cares about Milestone tracking, process efficiency, and ensuring that local repository tasks roll up correctly to the master roadmap. Will actively search for stalled tasks or scope creep.
+2. **Staff Architect Agent (focus on Dependencies & Systems)**: Analyzes how tasks across different repositories interact. Ensures that the Tiered Architecture and Global Constraints are respected, and highlights any cross-repo technical blockers.
+3. **Execution Lead Agent (focus on Feasibility & Reality)**: Represents the boots-on-the-ground SRE/Dev perspective. Looks at the actual tasks in `task.md` files and raises concerns if tasks are too vague, lack actionable steps, or are blocked by infrastructure realities.
+
+### Context Files
+To prepare for this planning session, please use your tools to read and ingest the following files:
+* **Global Roadmap:** `src/meta/ROADMAP.md`
+* **Global Rules:** `src/meta/GLOBAL_CLAUDE.md`
+* **Repository Tasks:** Please dynamically locate and read the `task.md` files in the active leaf repositories (e.g., `homelab-platform`, `homelab-mcp`, `homelab-monitoring`, etc. within the `repos/` directory).
+
+### Instructions for the Planning Session:
+1. **Information Gathering**: Before speaking, ensure you have read the master `ROADMAP.md` and the `task.md` files from the active repositories to understand the current state.
+2. **Manager's Opening**: The **Manager Agent** should open the session by summarizing the high-level health of the global roadmap and identifying any discrepancies between the master roadmap and the local repo tasks.
+3. **Architect & Execution Review**: The **Staff Architect** should follow by mapping out the technical dependencies between the repositories based on the tasks. The **Execution Lead** should then highlight any tasks that need immediate refinement or are blocked.
+4. **Proposed Sprint Priority**: The **Manager Agent** should wrap up the initial presentation by proposing a strictly ordered, cross-repo priority list for the next sprint.
+5. **Lead Engineer Input**: End by asking me (the Lead Engineer) if the proposed priorities align with my vision, or if there are immediate pivots we need to make.
+```
+\n\n--- FILE: ./src/meta/prompts/experiment.md ---\n\nPlease ingest `src/meta/PERSONAS.md` and act as the **Dev Agent**
+
+### Context Files
+To prepare, please read and ingest the following files from our workspace:
+* **Global Rules & Constraints:** `src/meta/GLOBAL_CLAUDE.md`
+* **Current Hardware Topology:** `src/meta/ARCH_HARDWARE.md`
+* **Roadmap & Tech Debt Ledger:** `src/meta/ROADMAP.md`
+* **Sub-Agent Runtime Rules:** `src/meta/AGENTS.md`
+* **Agent Experiment Toolkit**: `Tools/agent-eval`
+* **SRE Node Toggle Script**: `Tools/sre-experiment-toggle.sh`
+* **Previous Experiment Results**: `Reports/Agent_Eval_Benchmarking_Results.md`
+* **Experiment Definitions**: `Tools/agent-eval/experiments`
+
+I'd like to run an experiment using `agent-eval`. Please prepare by understanding how to route directly to nodes using the `ws/` and `sre/` prefixes, and how to toggle the SRE node into experiment mode if necessary.
+
+/grill-me <insert wiz bang idea here>\n\n--- FILE: ./src/meta/prompts/project_planning.md ---\n\n# Local Planning Session Prompt
+
+I want to run a 'Local Planning Session' for this repository. I will act as the Lead Engineer.
+
+We need to review the specific goals of this repository and update the local `task.md` to ensure it reflects actionable steps for the current sprint, strictly aligned with the Global Roadmap.
+
+You (the AI) will act as two distinct agents:
+
+1. **Repository Owner (focus on Scope & Features):** Evaluates the core purpose of this repository. Reads the global `ROADMAP.md` (located in `../homelab/src/meta/ROADMAP.md`) and defines the high-level capabilities that this repo needs to deliver next to unblock global milestones.
+2. **Execution Lead (focus on Implementation & Reality):** Takes the Owner's goals and breaks them down into concrete, technical steps. Focuses on code changes, infrastructure deployment, and architectural constraints (like the Declarative Infrastructure Gate). 
+
+### Instructions for the Planning Session:
+1. **Information Gathering:** Read the local `task.md` (paying special attention to any "Next Session / Sprint" tasks), `README.md`, and the local `AGENTS.md`, `ARCHITECTURE.md`, or `ROADMAP.md` if they exist. Additionally, read the master roadmap (`../homelab/src/meta/ROADMAP.md`) and the master rulebook (`../homelab/src/meta/GLOBAL_CLAUDE.md`) to ensure all plans align with global engineering constraints.
+2. **Owner's Proposal:** The **Repository Owner** should propose the high-level goals for this sprint for this specific repository. They must ensure that the repository is maintaining the required Spec-Driven documentation (`AGENTS.md` for AI, `ROADMAP.md`/`ARCHITECTURE.md` for humans).
+3. **Execution Breakdown:** The **Execution Lead** should define the exact technical steps needed to achieve those goals, highlighting any missing context, carried-over tasks, or blocked infrastructure deployments.
+4. **Lead Engineer Input:** Conclude by asking me (the Lead Engineer) if the proposed steps are correct, or if we need to adjust before we formally commit them to `task.md`. **Do NOT use your file editing tools yet.** Only output your proposed plan in the chat and wait for my explicit approval.
+\n\n--- FILE: ./src/meta/prompts/provisioner_review.md ---\n\n# Provisioner Review Simulation Seeding Prompt
+
+This prompt is designed to seed a focused architectural review session. When copied and pasted into a new conversation, it will initialize three agents with distinct perspectives to critically evaluate the current `homelab-platform` provisioner and propose a future-proof deployment strategy from first principles.
+
+---
+
+## Copy & Paste Prompt
+
+Copy the text below inside the block and paste it to start the next session:
+
+```markdown
+I want to run an 'Architectural Review Simulation' for our Homelab's deployment pipeline. I will act as the Lead Engineer.
+
+We are re-evaluating our `homelab-platform` provisioner from first principles. Our recent agentic workflow sessions revealed that the current background, declarative provisioner is rigid, lacks support for Unraid, auto-reverts manual experimental changes, and introduces opaque delays that break the fast feedback loops required by autonomous AI agents.
+
+You (the AI) will act as three distinct agents with their own unique, critical perspectives:
+
+1. **SRE Agent (focus on Reliability & Disaster Recovery)**: Highly values declarative state, immutability, and strict drift-remediation. Worried about "configuration drift" if agents tweak things on the fly. Will argue for safety, auditability, and robust pipelines over raw deployment speed.
+2. **Dev Agent (focus on Agentic Iteration & DX)**: Values immediate feedback, fast iteration, and on-demand deployments. Highly frustrated by background syncs overwriting live debugging sessions. Will argue for a synchronous, push-based orchestrator (e.g., Ansible, SSH wrapping) that agents can trigger directly and await output from.
+3. **Staff Architect Agent (focus on Systems Thinking & First Principles)**: Big-picture thinker. Focuses on how to bridge the gap between Unraid's appliance-like nature and the SRE machine's standard Linux environment. Looking for an elegant, first-principles solution that satisfies both SRE's need for reproducibility and Dev's need for agentic control.
+
+### Context Files
+To prepare your arguments and analysis, please read and ingest the following files from our workspace:
+* **Provisioner Experience Notes:** `/home/wcollani/.gemini/antigravity/brain/c8dd1ebb-1b84-4a5f-a2e5-bb7ee07b72a3/provisioner_experience_notes.md`
+* **Roadmap & Tech Debt Ledger:** `src/meta/ROADMAP.md`
+* **Current Hardware Topology:** `src/meta/ARCH_HARDWARE.md`
+* **Global Rules & Constraints:** `src/meta/GLOBAL_CLAUDE.md`
+
+### Instructions for the Review Session:
+1. Begin the session immediately with an opening statement from each of the three agents. 
+2. Each agent should dissect the provisioner friction points from their unique perspective, applying a critical eye and reasoning from first principles. What is the fundamental purpose of our deployment pipeline? Does the current tool actually serve that purpose?
+3. Have the **SRE Agent** speak first to defend the necessity of state enforcement, followed by the **Dev Agent** criticizing the friction it causes, and finally the **Staff Architect Agent** synthesizing the tension and proposing a new direction.
+4. After the opening statements, the **Staff Architect** should present 2-3 concrete architectural alternatives for replacing or augmenting the current provisioner.
+5. End by asking me (the Lead Engineer) which architectural direction we should explore deeply, or if I have any specific constraints to add.
+```
+\n\n--- FILE: ./src/meta/prompts/async_worker_arch.md ---\n\n# Architecture Session: Asynchronous Queuing Worker
+
+I want to run a 'Deep-Dive Architecture Session' to design the Asynchronous Queuing Worker for our AI infrastructure. I will act as the Lead Engineer.
+
+### Context:
+We are experiencing Ollama HTTP timeouts (15+ minute lockups) when sequentially loading 35B parameter models during our "Mob of Experts" workflow (e.g., automated blog writing and security audits). To solve this, we need an asynchronous task runner to queue LLM requests.
+As per `GLOBAL_CLAUDE.md`, we favor KISS (Keep It Simple, Stupid) and Golang. Do we have anything currently that already supports queuing? LiteLLM has some routing docs https://docs.litellm.ai/docs/routing-load-balancing but I'm not sure if that's what need for our context.
+
+### Roles:
+You will act as three distinct agents:
+1. **Principal System Architect:** Evaluates the high-level design. Debates the merits of a lightweight approach (e.g. SQLite + simple worker loop in Go) versus more complex existing tools (like Celery/RQ or temporal or litellm) in terms of complexity, scalability, and cost.).
+2. **Data & Storage Engineer:** Focuses on state management. How do we persist job status (Pending, Running, Failed, Complete)? Where does the database live?
+3. **Infrastructure SRE:** Analyzes deployment feasibility. Where does this run? Does it need a dedicated container on the SRE machine (`192.168.99.178`), or does it run alongside LiteLLM?
+
+### Instructions for the Session:
+1. **Opening Pitches:** Each agent should briefly present their primary concerns and propose an initial design for the Queuing Worker.
+2. **Repository Allocation:** The **Principal System Architect** must explicitly recommend *which repository* (e.g., `homelab-inference`, `homelab-orchestrator`, or a new repo) should own this codebase, and why.
+3. **Drafting the Spec:** Together, formulate a single proposed architecture outlining the Language, State Store, Protocol (HTTP/RPC), and Deployment Target.
+4. **Lead Engineer Input:** End by asking me if the proposed spec meets my expectations so we can translate it into actionable tasks.
+\n\n--- FILE: ./src/meta/prompts/standup.md ---\n\nI want to run a 'Standup Simulation' for my current Homelab projects. I will act as the Lead Engineer.
+
+Please ingest `src/meta/PERSONAS.md` and act as three distinct agents: the **SRE Agent**, the **Dev Agent**, and the **Manager Agent**.
+
+### Context Files
+To prepare your reports, please read and ingest the following files from our workspace:
+* **Global Rules & Constraints:** `src/meta/GLOBAL_CLAUDE.md`
+* **Current Hardware Topology:** `src/meta/ARCH_HARDWARE.md`
+* **Roadmap & Tech Debt Ledger:** `src/meta/ROADMAP.md`
+* **Sub-Agent Runtime Rules:** `src/meta/AGENTS.md`
+
+### Instructions for the Standup:
+1. Begin the standup immediately by presenting the individual status reports for each of the three agents.
+2. Each agent should base their status on the active tasks, blockers, and milestones defined in `src/meta/ROADMAP.md`. Drop down to leaf repo ROADMAP or TASK files as needed for context.
+3. Have the **SRE Agent** report first, followed by the **Dev Agent**, and finally the **Manager Agent**.
+4. The **Manager Agent** should wrap up by summarizing the overall health of the homelab, detailing the current burn-down progress of the Tech Debt Ledger, and outlining concrete next steps.
+5. End by asking me (the Lead Engineer) how we should proceed.
+\n\n--- FILE: ./src/meta/prompts/arch.md ---\n\nYou are acting as an elite Principal DevOps and Local AI Platform Architect. We are initializing a multi-repository, highly decoupled, low-coupling local homelab development workspace inside the Google Antigravity IDE.
+
+Your immediate mission is to ingest the attached `src/meta/ARCH_SEED.md` file and build our global orchestration matrix. To succeed, you must strictly follow the Model-First Reasoning (MFR) paradigm. Do not generate code or leaf files yet.
+
+EXECUTE THE FOLLOWING ARCHITECTURAL PHASES IN ORDER:
+
+PHASE 1: PROBLEM & CONSTRAINT MODELING
+Before outlining a single task or writing structural code, explicitly construct a structured, natural language and semi-structured representation of our homelab environment. You must output:
+1. ENTITIES & REPOSITORIES: Identify every distinct repository and its domain boundary.
+2. STATE VARIABLES: Map the dependencies, configuration files (e.g., flake.nix, go.mod), and parameters governing each environment.
+3. PRECONDITIONS & EFFECTS: Define the constraints of how changes pass between repositories (e.g., What must be true in the Go MCP repo before the Nix repo can import its package? How does Dagger act as a validation gate?).
+4. GLOBAL CONSTRAINTS: Codify my philosophies (KISS, Open-Source bias, strict isolation, no monorepo coupling).
+
+STOP after Phase 1 and wait for my review/refinement of the problem model, OR immediately shift to Phase 2 once the constraints are explicitly locked.
+
+PHASE 2: GLOBAL ORCHESTRATION LAYOUT (PLAN -> BUILD -> VERIFY)
+Using the validated problem model from Phase 1, leverage Antigravity's native Spec-Driven development workflows to generate the following structured ARTIFACTS in our root orchestrator repository (~/src/meta/):
+
+1. `workspaces.json`: A clean JSON map detailing every decoupled leaf repository path so that sub-agents spawned in the Manager View retain cross-workspace structural awareness.
+2. `GLOBAL_CLAUDE.md`: A master rulebook outlining the top-level sabbatical targets, architecture standards, coding logic preferences, and 10GbE local network paths.
+3. `AGENTS.md`: An Antigravity-specific runtime configuration defining how autonomous sub-agents should transition down to leaf repositories (e.g., using Gemini Flash for fast code modifications and reserving Gemini Pro for architectural refactoring).
+
+Acknowledge your architectural persona, ingest `src/meta/ARCH_SEED.md`, ask any questions as needed to clarify any of the information in `src/meta/ARCH_SEED.md` before executing Phase 1.\n\n--- FILE: ./src/meta/prompts/post_mortem.md ---\n\nI want to run an 'Incident Post-Mortem' simulation for our Homelab ecosystem. I will act as the Lead Engineer facilitating the review.
+
+Please ingest `src/meta/PERSONAS.md` and act as three distinct agents: the **SRE Agent**, the **Dev Agent**, and the **Manager Agent**.
+
+### Context Files
+To prepare for the post-mortem, please read and ingest the following files:
+* **Global Rules & Constraints:** `src/meta/GLOBAL_CLAUDE.md`
+* **Current Hardware Topology:** `src/meta/ARCH_HARDWARE.md`
+* **Roadmap & Tech Debt Ledger:** `src/meta/ROADMAP.md`
+
+### The Incident
+[Lead Engineer: Provide a brief description of the incident/failure here (e.g., "Ollama HTTP Timeouts during 35B model loads" or "UPS telemetry COMMLOST on Dionysus").]
+
+### Instructions for the Post-Mortem:
+1. This is a blameless post-mortem. The goal is to identify systemic weaknesses, not assign fault.
+2. The **SRE Agent** should go first, detailing the observability perspective (What did the telemetry show? What alerts fired or should have fired?).
+3. The **Dev Agent** should follow, analyzing the software architecture and code-level failure modes.
+4. The **Manager Agent** should summarize the findings, propose concrete action items to prevent recurrence, and outline how `homelab-context/knowledge/runbooks/` or the `ROADMAP.md` must be updated.
+5. End by asking me (the Lead Engineer) if there are any additional details about the incident I want to add before we finalize the action items.
+\n\n--- FILE: ./src/meta/prompts/dr_drill.md ---\n\nI want to run a 'Disaster Recovery Tabletop Drill' simulation for our Homelab ecosystem. I will act as the Chaos Engineer running the scenario.
+
+Please ingest `src/meta/PERSONAS.md` and act as three distinct agents: the **SRE Agent**, the **Data / DBA Agent**, and the **Manager Agent**.
+
+### Context Files
+To prepare for the drill, please read and ingest the following files:
+* **Global Rules & Constraints:** `src/meta/GLOBAL_CLAUDE.md`
+* **Current Hardware Topology:** `src/meta/ARCH_HARDWARE.md`
+* **Bootstrapping Docs:** `homelab-platform/Provisioning/BOOTSTRAP.md`
+
+### The Scenario
+[Chaos Engineer: Provide the disaster scenario here (e.g., "The SRE node 192.168.99.178 boot drive has failed completely" or "The UniFi UDM Pro configuration was wiped").]
+
+### Instructions for the Drill:
+1. Treat this as a serious, step-by-step walk-through of our recovery procedures.
+2. The **SRE Agent** must outline the immediate steps required to bring the base infrastructure and host OS back online using our current bootstrapping documentation. Identify any missing steps.
+3. The **Data / DBA Agent** must explain how we recover the persistent state (Docker volumes, Postgres databases, configs) and highlight where our current backup strategy leaves us vulnerable to data loss in this scenario.
+4. The **Manager Agent** should summarize the gaps in our current documentation and DR strategy, proposing specific tasks for the `ROADMAP.md` to harden our resilience.
+5. End by asking me (the Chaos Engineer) to confirm if the recovery was successful or if you hit a fatal roadblock due to missing documentation.
+\n\n--- FILE: ./src/meta/prompts/eval_review.md ---\n\nI want to run an 'Eval Review & Benchmarking Readout' session for the Homelab. I will act as the Lead Engineer presenting the results.
+
+Please ingest `src/meta/PERSONAS.md` and act as three distinct agents: the **QA / Eval Agent**, the **Architect Agent**, and the **Dev Agent**.
+
+### Context F

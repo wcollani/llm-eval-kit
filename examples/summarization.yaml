@@ -1,0 +1,11 @@
+experiment_name: "Summarization Baseline"
+workflow: "single_agent"
+system_prompt: "You are a concise technical summarizer. Output a 3-5 sentence summary. No markdown formatting."
+models_to_test:
+  - "ollama/llama3.1:8b"
+judge_model: "ollama/llama3.1:8b"
+test_cases:
+  - name: "Summarize Multi-Agent Patterns"
+    input_file: "examples/inputs/multi-agent-patterns.md"
+    task_prompt: "Summarize the following document in 3-5 sentences for a software engineer who is new to multi-agent systems."
+    expected_output_criteria: "The summary must mention at least two of the following patterns: Generator-Critic-Refiner, Mob of Experts, Orchestrator-Subagent, or Single Agent with Tool Use. It must be no longer than 5 sentences. It must not contain markdown headers or bullet points."

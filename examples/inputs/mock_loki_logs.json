@@ -1,0 +1,46 @@
+{
+  "status": "success",
+  "data": {
+    "resultType": "streams",
+    "result": [
+      {
+        "stream": {
+          "app": "api-server",
+          "container": "api-server-1",
+          "filename": "/var/log/api.log",
+          "level": "error"
+        },
+        "values": [
+          [
+            "1716503923000000000",
+            "[ERROR] 2026-05-23T22:38:43Z api-server HTTP POST /login FAILED"
+          ],
+          [
+            "1716503923010000000",
+            "Traceback (most recent call last):"
+          ],
+          [
+            "1716503923011000000",
+            "  File \"/app/main.py\", line 45, in login_handler"
+          ],
+          [
+            "1716503923012000000",
+            "    user = db_pool.query(\"SELECT * FROM users WHERE username=%s\", req.user)"
+          ],
+          [
+            "1716503923013000000",
+            "  File \"/usr/local/lib/python3.11/site-packages/psycopg2/pool.py\", line 121, in getconn"
+          ],
+          [
+            "1716503923014000000",
+            "    raise PoolError(\"connection pool exhausted\")"
+          ],
+          [
+            "1716503923015000000",
+            "psycopg2.OperationalError: FATAL: remaining connection slots are reserved for non-replication superuser connections"
+          ]
+        ]
+      }
+    ]
+  }
+}

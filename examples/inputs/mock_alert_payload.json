@@ -1,0 +1,19 @@
+{
+  "receiver": "webhook-pagerduty",
+  "status": "firing",
+  "alerts": [
+    {
+      "status": "firing",
+      "labels": {
+        "alertname": "HighCPUUsage",
+        "container": "api-server-1",
+        "severity": "critical"
+      },
+      "annotations": {
+        "description": "Container api-server-1 CPU usage is at 99%",
+        "summary": "High CPU usage detected on api-server-1"
+      },
+      "startsAt": "2026-05-23T02:00:00Z"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "status": "success",
+  "data": {
+    "resultType": "streams",
+    "result": [
+      {
+        "stream": {
+          "container": "api-server-1"
+        },
+        "values": [
+          ["1716503923000000000", "[ERROR] Connection pool exhausted. Too many active requests."],
+          ["1716503923010000000", "psycopg2.OperationalError: FATAL: remaining connection slots are reserved for non-replication superuser connections"]
+        ]
+      }
+    ]
+  }
+}
