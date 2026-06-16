@@ -4,6 +4,7 @@ __pycache__/
 *.pyo
 .venv/
 venv/
+*.egg-info/
 results/*.json
 results/artifacts/
 temp_output.py

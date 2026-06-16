@@ -74,6 +74,9 @@ def push_metrics_to_prometheus(experiment_name, model_name, case_name, scores, l
         )
         latency_gauge.labels(model=model_name, experiment=experiment_name, case=case_name).set(latency_sec * 1000)
 
-        push_to_gateway(gateway_url, job="llm_eval", registry=registry)
+        push_to_gateway(
+            gateway_url, job="llm_eval", registry=registry,
+            grouping_key={"experiment": experiment_name, "model": model_name, "case": case_name},
+        )
     except Exception as e:
         print(f"[!] Failed to push metrics to Prometheus Pushgateway: {e}")
