@@ -11,7 +11,7 @@ import base64
 import requests
 import json
 
-from eval_logger import setup_tracing, save_experiment_results
+from eval_logger import setup_tracing, save_experiment_results, push_metrics_to_prometheus
 from deepeval.test_case import LLMTestCase, SingleTurnParams
 from deepeval.metrics import GEval, BaseMetric
 from deepeval.models.base_model import DeepEvalBaseLLM
@@ -453,6 +453,12 @@ def run(
                 }
             })
             print(f"   [DONE] Latency: {latency:.2f}s | GEval: {geval_score} | Exec: {exec_score}")
+
+            push_metrics_to_prometheus(
+                experiment_name, combo_id, case['name'],
+                {"ExecutionMetric": exec_score, "GEval": geval_score},
+                latency
+            )
 
     save_experiment_results(experiment_name, results)
 

@@ -9,3 +9,4 @@ pyyaml
 pydantic
 pytest-asyncio
 aiohttp
+prometheus-client

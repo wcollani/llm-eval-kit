@@ -1,0 +1,215 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 0 },
+      "id": 1,
+      "title": "Quality vs. Latency (Pareto Frontier)",
+      "description": "Each point is one model on one case. Top-left is best: high GEval score, low latency.",
+      "type": "xychart",
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "case",
+            "mode": "outer"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "pointSize": { "fixed": 8 },
+            "show": "points"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "mapping": "auto",
+        "series": [
+          {
+            "x": { "matcher": { "id": "byName", "options": "Value #Latency" } },
+            "y": { "matcher": { "id": "byName", "options": "Value #Score" } }
+          }
+        ]
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "refId": "Latency",
+          "expr": "llm_eval_latency_ms{experiment=\"$experiment\"}",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "{{model}} / {{case}}"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "refId": "Score",
+          "expr": "llm_eval_score{experiment=\"$experiment\", metric=\"GEval\"}",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "{{model}} / {{case}}"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 0 },
+      "id": 2,
+      "title": "Score Trend Over Time",
+      "description": "GEval score per model for the selected experiment, over successive runs.",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 1,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "pointSize": 5,
+            "showPoints": "always"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "refId": "A",
+          "expr": "avg by (model) (llm_eval_score{experiment=\"$experiment\", metric=\"GEval\"})",
+          "legendFormat": "{{model}}"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 10 },
+      "id": 3,
+      "title": "Per-Model Win Rate",
+      "description": "Share of cases where a model's GEval score ties or beats every other model's score on that same case, for the selected experiment.",
+      "type": "table",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": { "align": "auto" }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "refId": "A",
+          "instant": true,
+          "format": "table",
+          "expr": "count by (model) (\n  llm_eval_score{experiment=\"$experiment\", metric=\"GEval\"}\n  == on(case) group_left()\n  max by (case) (llm_eval_score{experiment=\"$experiment\", metric=\"GEval\"})\n)\n/\ncount by (model) (llm_eval_score{experiment=\"$experiment\", metric=\"GEval\"})"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
+      "id": 4,
+      "title": "Latest Run Summary",
+      "description": "Most recent GEval score and latency per model for the selected experiment.",
+      "type": "table",
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "align": "auto" }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "refId": "Score",
+          "instant": true,
+          "format": "table",
+          "expr": "llm_eval_score{experiment=\"$experiment\", metric=\"GEval\"}"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "refId": "Latency",
+          "instant": true,
+          "format": "table",
+          "expr": "llm_eval_latency_ms{experiment=\"$experiment\"}"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["llm-eval-kit"],
+  "templating": {
+    "list": [
+      {
+        "name": "experiment",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(llm_eval_score, experiment)",
+        "refresh": 2,
+        "includeAll": false,
+        "multi": false,
+        "current": {}
+      }
+    ]
+  },
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "LLM Eval — Score & Latency Metrics",
+  "uid": "llm-eval-metrics",
+  "version": 1
+}

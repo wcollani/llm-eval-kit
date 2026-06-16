@@ -140,3 +140,9 @@ Multi-agent workflow artifacts (blog drafts, mob expert outputs) are saved to `r
 ## Grafana Dashboard
 
 `grafana/dashboard.json` is an importable Grafana dashboard for visualizing multi-agent experiment results when traces are flowing to a Grafana stack.
+
+### Score & Latency Metrics
+
+If `PROMETHEUS_PUSHGATEWAY_URL` is set, every test case pushes `llm_eval_score{model, experiment, case, metric}` (one series per `ExecutionMetric`/`GEval`) and `llm_eval_latency_ms{model, experiment, case}` to the Pushgateway. This requires a Pushgateway scraped by Prometheus — pushing is skipped silently if the env var is unset or the gateway is unreachable.
+
+`grafana/eval-metrics-dashboard.json` visualizes these series: a quality/latency scatter (Pareto frontier per model), score trend over time per experiment, a per-model win-rate table, and a latest-run summary panel. Import it into Grafana, or drop it into a provisioning folder pointed at a Prometheus datasource.
