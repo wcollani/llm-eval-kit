@@ -64,7 +64,7 @@ Now that basic classification and understanding are validated, we should expand 
 **Topic:** Architectural Insights on Inference Providers (vLLM vs Ollama)
 
 ## Executive Summary
-During the process of evaluating vision models (specifically `llama3.2-vision:11b` and `Qwen2-VL-7B`), we attempted to deploy a Tier 2 Vision Watchdog onto the SRE Node (`192.168.99.178`, RTX 3070 Ti) using `vLLM`.
+During the process of evaluating vision models (specifically `llama3.2-vision:11b` and `Qwen2-VL-7B`), we attempted to deploy a Tier 2 Vision Watchdog onto the SRE Node (`10.0.0.1`, RTX 3070 Ti) using `vLLM`.
 
 This deployment brought an architectural constraint to light: **vLLM requires static loading**. 
 
@@ -110,7 +110,7 @@ This report outlines the findings from the initial run of the `agent-status` MVP
 ### 2. Missing Log Collection (High)
 - **Issue**: Neither Unraid node is shipping logs to Loki (`logs: not_configured`).
 - **Impact**: Troubleshooting container crashes or array errors requires manual SSH access.
-- **Action**: Deploy Promtail or Alloy to Dionysus and Archive to stream `/var/log/syslog` and Docker container logs to the central Loki instance (`192.168.99.178:3100`).
+- **Action**: Deploy Promtail or Alloy to Dionysus and Archive to stream `/var/log/syslog` and Docker container logs to the central Loki instance (`10.0.0.1:3100`).
 
 ### 3. UniFi Remote Syslog (Medium)
 - **Issue**: Network devices (UDM, USW, UAPs) currently do not ship logs to our centralized observability stack.
@@ -124,7 +124,7 @@ This report outlines the findings from the initial run of the `agent-status` MVP
 
 ### 1. Fix Uptime Mapping Bug (Medium)
 - **Issue**: The SRE node (`homelab-sre`) reports its uptime as `unknown`.
-- **Cause**: Prometheus stores the instance label as `node-exporter` for this node. The script parses the label string directly, failing to map `node-exporter` back to the SRE node's IP (`192.168.99.178`) during the uptime phase.
+- **Cause**: Prometheus stores the instance label as `node-exporter` for this node. The script parses the label string directly, failing to map `node-exporter` back to the SRE node's IP (`10.0.0.1`) during the uptime phase.
 - **Action**: Update `fetch_node_uptimes()` to use the same label-to-IP mapping logic currently used in `fetch_prometheus_up_ips()`.
 
 ### 2. Add Storage Capacity Metrics (High)
@@ -146,7 +146,7 @@ A homelab CLI tool that queries live infrastructure data across the network and 
 
 ## What it does
 
-- Connects to [`homelab-mcp`](http://192.168.99.178:8083) over SSE to fetch UniFi infrastructure devices and all connected clients
+- Connects to [`homelab-mcp`](http://10.0.0.1:8083) over SSE to fetch UniFi infrastructure devices and all connected clients
 - Queries Prometheus (`:9091`) for live metrics scrape status and node uptimes
 - Queries Loki (`:3100`) to check log shipping status per host
 - Assembles a structured JSON report covering:
@@ -160,10 +160,10 @@ A homelab CLI tool that queries live infrastructure data across the network and 
 |---|---|
 | Python | ≥ 3.14 |
 | Package manager | [`uv`](https://docs.astral.sh/uv/) |
-| MCP server | `homelab-mcp` running at `http://192.168.99.178:8083/sse` |
-| LiteLLM proxy | Running at `http://192.168.99.178:4000/v1` with `ollama/qwen2.5-coder:14b` |
-| Prometheus | Running at `http://192.168.99.178:9091` |
-| Loki | Running at `http://192.168.99.178:3100` |
+| MCP server | `homelab-mcp` running at `http://10.0.0.1:8083/sse` |
+| LiteLLM proxy | Running at `http://10.0.0.1:4000/v1` with `ollama/qwen2.5-coder:14b` |
+| Prometheus | Running at `http://10.0.0.1:9091` |
+| Loki | Running at `http://10.0.0.1:3100` |
 
 ## Running
 
@@ -191,7 +191,7 @@ uv run agent_status.py | jq '[.clients[] | select(.connection_type == "wireless"
       "mac": "",
       "device_type": "server",        // server | udm | usw | uap
       "version": "Linux",
-      "ip_address": "192.168.99.178",
+      "ip_address": "10.0.0.1",
       "uptime": "9d 20h 12m 57s",
       "state": "running",
       "interfaces": [],
@@ -205,7 +205,7 @@ uv run agent_status.py | jq '[.clients[] | select(.connection_type == "wireless"
     {
       "hostname": "boys-pcp",
       "mac": "70:d8:c2:14:8e:e4",
-      "ip_address": "192.168.99.251",
+      "ip_address": "10.0.0.5",
       "connection_type": "wired",     // wired | wireless
       "uplink": "USW Pro 24 PoE",
       "vlan": "Default",
@@ -224,7 +224,7 @@ uv run agent_status.py | jq '[.clients[] | select(.connection_type == "wireless"
 |---|---|---|---|
 | UniFi APs / Switch / Gateway | `n/a` | `n/a` | `n/a` |
 | Unraid nodes (Dionysus, Archive) | `not_configured` | live Prometheus check | `n/a` |
-| SRE machine (`192.168.99.178`) | `working` | live Prometheus check | `working` |
+| SRE machine (`10.0.0.1`) | `working` | live Prometheus check | `working` |
 
 Metrics status is determined by querying the live `/api/v1/targets` endpoint — a node is `working` if at least one target for its IP (or a known Docker job like `node-exporter` / `cadvisor`) is healthy.
 
@@ -302,8 +302,8 @@ This homelab utilizes two primary GPU nodes:
 - **SRE Machine (RTX 3070 Ti)**: Best for lighter models or quick tests (e.g., 1.5B - 8B parameters).
 
 By default, the CLI will use:
-- **LiteLLM Proxy:** `http://192.168.99.178:4000/v1` (Running on the SRE Machine)
-- **OTLP Trace Exporter:** `http://192.168.99.178:4319/v1/traces`
+- **LiteLLM Proxy:** `http://10.0.0.1:4000/v1` (Running on the SRE Machine)
+- **OTLP Trace Exporter:** `http://10.0.0.1:4319/v1/traces`
 
 When hitting LiteLLM, requests are automatically routed to the correct machine based on the model specified in your YAML (e.g., `ollama/llama3.1:8b`). You can override the proxy or telemetry endpoints by setting the `LITELLM_API_BASE` and `OTEL_EXPORTER_OTLP_ENDPOINT` environment variables.
 
@@ -316,8 +316,8 @@ If LiteLLM is not working or you need to bypass it, you can hit the backend infe
 - **vLLM**: `export LITELLM_API_BASE="http://localhost:8000/v1"`
 
 **SRE Machine (RTX 3070 Ti):**
-- **Ollama**: `export LITELLM_API_BASE="http://192.168.99.178:11434"`
-- **vLLM**: `export LITELLM_API_BASE="http://192.168.99.178:8000/v1"`
+- **Ollama**: `export LITELLM_API_BASE="http://10.0.0.1:11434"`
+- **vLLM**: `export LITELLM_API_BASE="http://10.0.0.1:8000/v1"`
 
 ## Writing an Experiment YAML
 
@@ -359,7 +359,7 @@ To generate and export traces from the client script directly to your OTLP backe
    pip install -r Tools/agent-eval/requirements.txt
    ```
 3. **Verify**:
-   Run `agent-eval` and confirm the warning is resolved and spans are visible at `http://192.168.99.178:4319/v1/traces`.
+   Run `agent-eval` and confirm the warning is resolved and spans are visible at `http://10.0.0.1:4319/v1/traces`.
 
 ### Option B: Bypassing Client-Side Tracing
 If you only care about tracing on the remote LiteLLM Proxy Server and want to silence the client warning:
@@ -373,7 +373,7 @@ If you only care about tracing on the remote LiteLLM Proxy Server and want to si
 This document formalizes the compute boundaries, hardware constraints, and operational guidelines for deploying AI models and workloads within the homelab ecosystem. Sub-agents must adhere to these limits when spinning up local inference engines (Ollama, vLLM, etc.) or designing background tasks.
 
 ## 1. Primary Workstation Node (RTX 5080)
-- **Host IP:** `192.168.99.247`
+- **Host IP:** `10.0.0.2`
 - **VRAM Capacity:** 16GB
 - **Hardware Role:** Heavy LLM inference node and primary development environment.
 - **Model Constraints:**
@@ -384,7 +384,7 @@ This document formalizes the compute boundaries, hardware constraints, and opera
   - Do not deploy persistent background services here, as they compete with the primary user's desktop experience.
 
 ## 2. SRE & Local AI Node (RTX 3070 Ti)
-- **Host IP:** `192.168.99.178`
+- **Host IP:** `10.0.0.1`
 - **VRAM Capacity:** 8GB
 - **Hardware Role:** Background Inference Node, Telemetry Aggregation, and Provisioning.
 - **Model Constraints:**
@@ -395,8 +395,8 @@ This document formalizes the compute boundaries, hardware constraints, and opera
   - All prompt evaluations, cron-triggered summarizations, and background alert analysis must be carefully batched to fit within the 4096 context limit.
 
 ## 3. Storage Nodes (Unraid)
-- **Dionysus** (`192.168.99.115`): Primary Docker host. No dedicated GPU for AI inference. High CPU/RAM capacity.
-- **Archive** (`192.168.99.189`): Backup Node.
+- **Dionysus** (`10.0.0.3`): Primary Docker host. No dedicated GPU for AI inference. High CPU/RAM capacity.
+- **Archive** (`10.0.0.4`): Backup Node.
 - **Usage Guidelines:** These nodes handle persistent storage, media, and lightweight stateless Docker containers. AI inference should not be offloaded to these nodes unless strictly CPU-based and highly asynchronous.
 \n\n--- FILE: ./docs/MULTI_AGENT_BENCHMARKS.md ---\n\n# Homelab Multi-Agent Benchmarking Framework
 
@@ -407,9 +407,9 @@ The goal of this architecture is to provide a "golden path" for reproducible exp
 
 ## Architecture & Hardware Topology
 * **Local Workstation (RTX 5080)**: Serves as the primary execution runner. The `agent-eval` CLI is run from here, leveraging its `.venv` while delegating heavy lifting to the SRE node.
-* **SRE Node (RTX 3070ti @ `192.168.99.178`)**: 
-  * Hosts the LiteLLM Proxy endpoint (`http://192.168.99.178:4000/v1`) to unify model access (vLLM, Ollama).
-  * Hosts the **Grafana Alloy** telemetry ingestion point (`http://192.168.99.178:4319/v1/traces`), which fans out traces.
+* **SRE Node (RTX 3070ti @ `10.0.0.1`)**: 
+  * Hosts the LiteLLM Proxy endpoint (`http://10.0.0.1:4000/v1`) to unify model access (vLLM, Ollama).
+  * Hosts the **Grafana Alloy** telemetry ingestion point (`http://10.0.0.1:4319/v1/traces`), which fans out traces.
   * Hosts **Arize Phoenix** (`:6006`) for visual LLM span analysis.
   * Hosts **Loki** (`:3100`) for centralized log storage.
 
@@ -606,7 +606,7 @@ Here we explore 8 architectures:
 8. **Composite Patterns:** Mixing and matching the above patterns for robust real-world applications.
 
 ## Hardware & Models
-Based on local homelab benchmarking, these examples are designed to point to a local LiteLLM proxy (`http://192.168.99.178:4000/v1`). We utilize the following models based on hardware constraints:
+Based on local homelab benchmarking, these examples are designed to point to a local LiteLLM proxy (`http://10.0.0.1:4000/v1`). We utilize the following models based on hardware constraints:
 - **Lead Orchestrator:** `qwen2.5-coder:14b` (Assigned to RTX 5080)
 - **Subagents / Parallel Workers:** `qwen2.5-coder:7b` (Assigned to RTX 3070ti)
 
@@ -683,9 +683,9 @@ When transitioning tasks from the Orchestrator repo to a Leaf repo, agents must 
 
 ## 3. Tooling & Execution Constraints
 - **Destructive Commands:** Agents must flag commands that modify base OS state (e.g., pacman, apt, systemctl on the host node) as requiring user approval.
-- **Local AI Utilization:** Agents should default to utilizing the local LiteLLM proxy endpoint (`192.168.99.178:4000`) for generative tools or testing harnesses. This abstracts the underlying Ollama and vLLM runtimes.
+- **Local AI Utilization:** Agents should default to utilizing the local LiteLLM proxy endpoint (`10.0.0.1:4000`) for generative tools or testing harnesses. This abstracts the underlying Ollama and vLLM runtimes.
 - **Spec-Driven Workflows:** Agents must prioritize updating `task.md`, `implementation_plan.md`, and `walkthrough.md` to persist the AI context for future agents. Do not hide logic decisions in one-off chat sessions.
-- **Observability:** All agent evaluations and benchmarking scripts must export traces via OpenTelemetry (OTLP) to the SRE Alloy ingestion point (`192.168.99.178:4319`) to be visualized in Arize Phoenix.
+- **Observability:** All agent evaluations and benchmarking scripts must export traces via OpenTelemetry (OTLP) to the SRE Alloy ingestion point (`10.0.0.1:4319`) to be visualized in Arize Phoenix.
 
 ## 4. Persona Panels & Workflow Prompts
 To combat hallucinations and isolate context effectively, the homelab utilizes a "Persona Panel" pattern (e.g., Standup Simulations or Architectural Debates).
@@ -712,31 +712,31 @@ The primary storage and Docker container hosts, managed via Unraid and accessibl
 ### Dionysus
 - **Role:** Primary Data / Compute Node
 - **Hardware:** 24-drive 4U Supermicro Server
-- **IP:** `192.168.99.115`
+- **IP:** `10.0.0.3`
 - **Memory:** ~48GB RAM (Currently ~47GB utilized)
 - **Status:** Online & Active
 
 ### Archive
 - **Role:** Secondary / Backup Node
 - **Hardware:** 36-drive 4U Supermicro Server
-- **IP:** `192.168.99.189`
+- **IP:** `10.0.0.4`
 - **Memory:** ~16GB RAM (Currently ~15.2GB utilized)
 - **Status:** Online & Active
 
 ## 3. Network Infrastructure (UniFi)
 The network layer is managed via the UniFi API. 
-- **Subnet:** `192.168.99.x/24`
+- **Subnet:** `10.0.0.x/24`
 
 ### Devices
 - **Gateway:** UDM Pro (Dream Machine Pro)
 - **WAN IP:** `104.128.170.212`
-- **LAN IP:** `192.168.99.1`
+- **LAN IP:** `10.0.0.254`
 - **Switch:** USW Pro 24 PoE
-  - **IP:** `192.168.99.198`
+  - **IP:** `10.0.0.7`
 - **NVR:** UniFi Network Video Recorder
 
 ## 4. SRE & Local AI Node
-- **Current Target:** `192.168.99.178`
+- **Current Target:** `10.0.0.1`
 - **Role:** Centralized Observability (Alloy, Arize Phoenix, Grafana, Loki, Prometheus), API Gateway (LiteLLM Proxy), AI Runtimes (vLLM, Ollama), Open WebUI, and the `homelab-platform` provisioning MCP.
 - **GPU:** Dedicated NVIDIA RTX 3070 Ti (~8GB VRAM)
 - **Role in AI Layer:** Runs vLLM and Ollama locally as a Background Inference Node for RAG embeddings, Sentinel health checks, and AI orchestrator fallbacks.
@@ -748,7 +748,7 @@ The network layer is managed via the UniFi API.
 ### Power Delivery & Battery Backup
 - **Main Service:** 50-amp 240V service split into 2 x 25-amp 120V circuits.
 - **Circuit A:** Connected to **UPS 1** (APC Smart-UPS C1000 - Old desk unit off to the side of the rack). Connected via USB to Dionysus.
-- **Circuit B:** Connected to **UPS 2** (APC Smart-UPS C1500 - Rack-mounted). Network connected (IP: `192.168.99.163`).
+- **Circuit B:** Connected to **UPS 2** (APC Smart-UPS C1500 - Rack-mounted). Network connected (IP: `10.0.0.6`).
 - **Redundancy:** 
   - Servers (Archive, Dionysus) have dual power supplies. PSU 1 connects to UPS 1; PSU 2 connects to UPS 2.
   - Network devices' power is split between both UPS units.
@@ -812,7 +812,7 @@ These items must be systematically burned down before starting new feature work 
    - **Action:** Define alerting rules and health check integrations for UPS data.
    - **Status:** Complete. Integrated tri-state health checks (`HEALTHY`, `POWER_EVENT`, `TELEMETRY_FAILURE`) directly into `agent-status` LLM prompts for immediate CLI warnings.
 3. **[x] Configure Unraid Remote Syslog to SRE Alloy**
-   - **Target Node:** Unraid nodes to SRE Node (`192.168.99.178:3100`)
+   - **Target Node:** Unraid nodes to SRE Node (`10.0.0.1:3100`)
    - **Action:** Stream `/var/log/syslog` and Docker stdout.
    - **Status:** Complete. Syslog streamed via port 1514 (Alloy UDP/TCP) in RFC3164 format.
 4. **[x] Configure UniFi Remote Syslog**
@@ -859,7 +859,7 @@ To ensure this roadmap remains an active operational tool, we are implementing t
   * **Mechanism:** Extend our `agent-status` tool (or a dedicated helper) to support a `python Tools/agent-status/main.py --roadmap` command. This will parse this markdown file and print a colorized, structured progress bar and blocker status directly in the console.
 * **Phase 3: Grafana & Centralized Dashboard (Milestone C)**
   * **Goal:** Visual, centralized telemetry monitoring.
-  * **Mechanism:** Serialize this roadmap status into JSON (hosted on the SRE machine `192.168.99.178`) and build a custom Grafana dashboard panel. This allows us to monitor our software project health directly alongside our server CPU, memory, and disk utilization metrics.
+  * **Mechanism:** Serialize this roadmap status into JSON (hosted on the SRE machine `10.0.0.1`) and build a custom Grafana dashboard panel. This allows us to monitor our software project health directly alongside our server CPU, memory, and disk utilization metrics.
 
 ---
 
@@ -872,7 +872,7 @@ To ensure this roadmap remains an active operational tool, we are implementing t
 - [x] **Roadmap Phase 1**: Establish Spec-Driven Task Roll-up standard across all repos.
 
 ### Milestone B: Asynchronous Architecture & MCP Deployment
-- [ ] Migrate `homelab-mcp` to run daemonized on the SRE machine (`192.168.99.178`).
+- [ ] Migrate `homelab-mcp` to run daemonized on the SRE machine (`10.0.0.1`).
 - [ ] Complete Async Task Runner to enable "Mob of Experts" blog writing and security audits.
 - [ ] Integrate OpenWebUI deeply with the homelab MCP schema.
 - [ ] **Roadmap Phase 2**: Build CLI Roadmap capability (`--roadmap`) inside `agent-status` tool.
@@ -908,7 +908,7 @@ This document outlines the top-level sabbatical targets, architecture standards,
 - **Declarative Infrastructure Gate:** Applications cannot magically deploy themselves. Modifications require configuration changes merged into `homelab-platform`, which serves as a declarative, pull-based validation gate.
 - **Top-Down Context Loading:** A sub-agent operating in a leaf repository must always ingest `workspaces.json` from the `homelab` orchestrator repo to understand its position before modifying code.
 - **AI Orchestration (Dual-Layer Stack):** The homelab AI layer consists of a Gateway (LiteLLM) for routing/fallback and a Frontend (Open WebUI) for mobile access and built-in MCP integration. External agents connect directly to MCP servers via Streamable HTTP (SSE) bypassing proxy layers.
-- **Infrastructure Execution Boundary:** The actual homelab infrastructure (e.g. Postgres, Redis, vLLM, LiteLLM) is hosted on the SRE machine at `192.168.99.178`. Local docker containers on the workstation should NEVER be spun up for these core services. Always SSH into `wcollani@192.168.99.178` when modifying docker-compose files or running 'docker compose up' for infrastructure.
+- **Infrastructure Execution Boundary:** The actual homelab infrastructure (e.g. Postgres, Redis, vLLM, LiteLLM) is hosted on the SRE machine at `10.0.0.1`. Local docker containers on the workstation should NEVER be spun up for these core services. Always SSH into `user@10.0.0.1` when modifying docker-compose files or running 'docker compose up' for infrastructure.
 
 ## 3. CI/CD Pipeline & Runner Topology
 Due to the constraints of personal GitHub accounts, self-hosted GitHub Actions runners cannot be shared globally across multiple repositories.
@@ -919,7 +919,7 @@ Due to the constraints of personal GitHub accounts, self-hosted GitHub Actions r
 Agents must be aware of the following baseline constraints and paths. **Do not assume any node's role without consulting this section first.**
 
 ### Network
-- **Subnet:** `192.168.99.x` is the primary operational local network subnet.
+- **Subnet:** `10.0.0.x` is the primary operational local network subnet.
 - **Speed:** Assumes 10GbE network availability for core local data transfers.
 - **Network Layer:** UniFi API-controlled ecosystem.
 
@@ -927,15 +927,15 @@ Agents must be aware of the following baseline constraints and paths. **Do not a
 
 | Node | IP | Hardware | Role |
 |------|----|----------|------|
-| **Primary Workstation** | `192.168.99.247` | Arch Linux, RTX 5080 (16GB VRAM) | **Heavy LLM inference node.** Runs Ollama locally for on-demand coding and large context models. |
-| **SRE Machine** | `192.168.99.178` | 16GB RAM, RTX 3070 Ti (8GB VRAM) | Provisioner, services, GHA runners, and **Background Inference Node**. Runs vLLM and Ollama locally for RAG embeddings, Sentinel health checks, and AI orchestrator fallbacks. |
-| **Dionysus (Unraid)** | `192.168.99.x` | ~48GB RAM | Core storage node, Docker container host. |
-| **Archive (Unraid)** | `192.168.99.x` | ~16GB RAM | Secondary storage node. |
+| **Primary Workstation** | `10.0.0.2` | Arch Linux, RTX 5080 (16GB VRAM) | **Heavy LLM inference node.** Runs Ollama locally for on-demand coding and large context models. |
+| **SRE Machine** | `10.0.0.1` | 16GB RAM, RTX 3070 Ti (8GB VRAM) | Provisioner, services, GHA runners, and **Background Inference Node**. Runs vLLM and Ollama locally for RAG embeddings, Sentinel health checks, and AI orchestrator fallbacks. |
+| **Dionysus (Unraid)** | `10.0.0.x` | ~48GB RAM | Core storage node, Docker container host. |
+| **Archive (Unraid)** | `10.0.0.x` | ~16GB RAM | Secondary storage node. |
 
 *Note: With the 3070 Ti in the SRE machine, services like homelab-operator and homelab-mcp can now point their local Ollama endpoints directly to `http://localhost:11434` for background tasks.*
 
 ### Core Storage
-- **Unraid Servers (Dionysus + Archive):** NAS + Docker container hosts for media, homelab services, and private registry (`192.168.99.178:5000`).
+- **Unraid Servers (Dionysus + Archive):** NAS + Docker container hosts for media, homelab services, and private registry (`10.0.0.1:5000`).
 
 ## 5. Secret Management Standard
 
@@ -954,13 +954,13 @@ Secrets are **never** committed to any repository. The following standard applie
   - **Workspaces**: Agents must use `workspaces.json` to navigate cross-repo boundaries.
 
 ## 7. Backup Strategy (Future Work)
-- **Local Docker Volumes:** Currently, services like Postgres running on the SRE machine (`192.168.99.178`) persist data via standard Docker local volumes (e.g., `[postgres]_data`).
+- **Local Docker Volumes:** Currently, services like Postgres running on the SRE machine (`10.0.0.1`) persist data via standard Docker local volumes (e.g., `[postgres]_data`).
 - **Target Architecture:** Future work must define a comprehensive backup strategy for the homelab. This should include syncing critical docker volumes to an Unraid node or an offsite location to ensure resilience against localized SRE node failure.
 
 ## 8. Agent Evaluation & Benchmarking
 - **Agent-Eval CLI:** All agent benchmarking and prompt evaluations occur via the `Tools/agent-eval` CLI framework (`python Tools/agent-eval/cli.py`).
 - **Distributed MAS Testing:** To test Multi-Agent Systems with high concurrency, use the toggle script (`Tools/sre-experiment-toggle.sh start`) to temporarily replace the SRE node's vLLM with a GPU-enabled Ollama container (`ollama_exp`). Then, bypass the LiteLLM proxy by prefixing model names with `ws/` or `sre/` in your experiment YAML. This allows the orchestrator to hit nodes directly and relies on Ollama's internal request queuing rather than LiteLLM rate-limits, preventing OOMs.
-- **Workflow:** When requested to test models or build benchmarks, create a declarative YAML experiment in `Tools/agent-eval/experiments/`. Execute the CLI locally on the workstation; unless prefixed with `ws/` or `sre/`, it natively targets the SRE machine's LiteLLM proxy (`192.168.99.178:4000`) and OTLP ingestion point (`192.168.99.178:4319`).
+- **Workflow:** When requested to test models or build benchmarks, create a declarative YAML experiment in `Tools/agent-eval/experiments/`. Execute the CLI locally on the workstation; unless prefixed with `ws/` or `sre/`, it natively targets the SRE machine's LiteLLM proxy (`10.0.0.1:4000`) and OTLP ingestion point (`10.0.0.1:4319`).
 - **Observability:** We use standard OpenTelemetry (OTLP) exporting to Grafana Alloy, which fans out traces to **Arize Phoenix** (for LLM span observability) and **Loki** (for log storage). During high-concurrency SRE tests, ensure you monitor the Grafana dashboard `MAS Experiment Health` to track `ollama_exp` container memory/CPU utilization. Do not use Langfuse or proprietary SDKs for evaluations.
 \n\n--- FILE: ./src/meta/ARCH_SEED.md ---\n\n# Homelab Orchestration Seed File (ARCH_SEED.md)
 
@@ -975,23 +975,23 @@ Secrets are **never** committed to any repository. The following standard applie
 - **Primary Workstation Node:** Current machine, running EndeavourOS/Arch, local NVIDIA RTX 3070TI
 - **Target Storage & Core Node:** Unraid Server running Docker, GraphQL API endpoint. Need to caputre config with homelab-mcp
 - **Networking Layout:** UniFi API-controlled ecosystem, Need to caputre config with homelab-mcp
-- **SRE & Local AI Node:** Currently using machine `192.168.99.178`. Hosts Open WebUI, LiteLLM Proxy API Gateway, local Ollama/vLLM runtimes, and the central OTLP/Observability stack (Arize Phoenix, Alloy, Loki). This will be upgraded with new hardware as it is acquired. Currently lacks a GPU that can run modern CUDA/LLMS but need to capture current state to know current constraints. We will likely be adding a dedicated GPU for this purpose in the short term, Used RTX 3090/4090 or new 5070TI/5080. Which will require new AM5 motherboard, Ryzen 9000 series CPU, 32GB+ DDR5 RAM as prices permit, have NVME, case and PSU available.
+- **SRE & Local AI Node:** Currently using machine `10.0.0.1`. Hosts Open WebUI, LiteLLM Proxy API Gateway, local Ollama/vLLM runtimes, and the central OTLP/Observability stack (Arize Phoenix, Alloy, Loki). This will be upgraded with new hardware as it is acquired. Currently lacks a GPU that can run modern CUDA/LLMS but need to capture current state to know current constraints. We will likely be adding a dedicated GPU for this purpose in the short term, Used RTX 3090/4090 or new 5070TI/5080. Which will require new AM5 motherboard, Ryzen 9000 series CPU, 32GB+ DDR5 RAM as prices permit, have NVME, case and PSU available.
 
 ## 3. The Current Repository Matrix
 - Naming convention, `homelab-` is the prefix for all repositories.
 - For current projects, my early pattern was to use the README.md and Design folder to keep the AI context for the repos and I would like to move to using Antigravity's Spec-Driven development workflows and use the `AGENTS.md` and `workspaces.json` files to keep the AI context for the repos. This should be the new pattern moving forward for all new projects. Use the current pattern for information to plan and handle the refactor to the new pattern, then update the repos to the new pattern. 
 ### Current Repositories
-- **homelab-mcp:** MCP Server for the homelab, currently configured as a CLI MCP but will be migrated to `192.168.99.178` when refactored to use the deploy pattern from `homelab-platform`. 
+- **homelab-mcp:** MCP Server for the homelab, currently configured as a CLI MCP but will be migrated to `10.0.0.1` when refactored to use the deploy pattern from `homelab-platform`. 
     - ~/repos/homelab-mcp
 - **homelab-platform** The homelab-platform repository provides a "Golden Path" for hosting agentic and infrastructure services within your local network. It decouples application logic from infrastructure concerns through a declarative, pull-based provisioning system.
     - ~/repos/homelab-platform
-    - Currently has a provisioner mcp running on `192.168.99.178`. MVP state with `homelab-mcp` ready to use `~/repos/homelab-platform/Design/ONBOARDING.md`
+    - Currently has a provisioner mcp running on `10.0.0.1`. MVP state with `homelab-mcp` ready to use `~/repos/homelab-platform/Design/ONBOARDING.md`
     - Will contain the collection of tools, MCP servers etc that will provies the homelab services that other agents will use.
 - **homelab** This repo, Top Level Homelab repo with private info, high level documentation, planning, context, workflows, reporting, config etc
     - ~/repos/homelab
     - Made private in Github to avoid leaking sensitive information. I would like to refactor this so that it is a much more organized repository with all the information in the correct place. Pull out any configuration or sensitve info like service names, ips etc. and document in here as required.
     - `Reports` & `Tools` folders will be used as needed for reports and tools are built for the homelab.
-    - Gemini convo about Langchain stack and current/future hardware plans. `~/repos/homelab/src/meta/NotebookLM Sources/Langchain ecosystem and current hardware with future plans.md`. `192.168.99.178` is the machine being referenced and currenly running `homelab-platform`. But will be upgraded as described in the linked file and used to host the local ai services and tooling. 
+    - Gemini convo about Langchain stack and current/future hardware plans. `~/repos/homelab/src/meta/NotebookLM Sources/Langchain ecosystem and current hardware with future plans.md`. `10.0.0.1` is the machine being referenced and currenly running `homelab-platform`. But will be upgraded as described in the linked file and used to host the local ai services and tooling. 
     - Would like to incorporate OpenWebUI into the homelab, not sure where it will fit best. Any Suggestions?
 ### Future Repositories
 All names are placeholders and can be changed to something more desciptive as the architecture evolves. Make suggestions on where these may fit better or when new ones are needed as the architecture evolves.
@@ -1139,7 +1139,7 @@ As per `GLOBAL_CLAUDE.md`, we favor KISS (Keep It Simple, Stupid) and Golang. Do
 You will act as three distinct agents:
 1. **Principal System Architect:** Evaluates the high-level design. Debates the merits of a lightweight approach (e.g. SQLite + simple worker loop in Go) versus more complex existing tools (like Celery/RQ or temporal or litellm) in terms of complexity, scalability, and cost.).
 2. **Data & Storage Engineer:** Focuses on state management. How do we persist job status (Pending, Running, Failed, Complete)? Where does the database live?
-3. **Infrastructure SRE:** Analyzes deployment feasibility. Where does this run? Does it need a dedicated container on the SRE machine (`192.168.99.178`), or does it run alongside LiteLLM?
+3. **Infrastructure SRE:** Analyzes deployment feasibility. Where does this run? Does it need a dedicated container on the SRE machine (`10.0.0.1`), or does it run alongside LiteLLM?
 
 ### Instructions for the Session:
 1. **Opening Pitches:** Each agent should briefly present their primary concerns and propose an initial design for the Queuing Worker.
@@ -1215,7 +1215,7 @@ To prepare for the drill, please read and ingest the following files:
 * **Bootstrapping Docs:** `homelab-platform/Provisioning/BOOTSTRAP.md`
 
 ### The Scenario
-[Chaos Engineer: Provide the disaster scenario here (e.g., "The SRE node 192.168.99.178 boot drive has failed completely" or "The UniFi UDM Pro configuration was wiped").]
+[Chaos Engineer: Provide the disaster scenario here (e.g., "The SRE node 10.0.0.1 boot drive has failed completely" or "The UniFi UDM Pro configuration was wiped").]
 
 ### Instructions for the Drill:
 1. Treat this as a serious, step-by-step walk-through of our recovery procedures.

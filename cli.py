@@ -319,6 +319,11 @@ def mob_of_experts_task(orchestrator_model: str, generator_model: str, critic_mo
 @app.command()
 def run(
     config_path: str = typer.Argument(..., help="Path to experiment YAML spec"),
+    allow_code_execution: bool = typer.Option(
+        False,
+        "--allow-code-execution",
+        help="Allow ExecutionMetric to run LLM-generated code. Only use with trusted/local models.",
+    ),
 ):
     """Run an agent experiment defined in a YAML spec."""
 
@@ -427,8 +432,13 @@ def run(
             )
 
             print(f"   Grading Output...")
-            exec_metric = ExecutionMetric()
-            exec_score = exec_metric.measure(test_case)
+            if allow_code_execution:
+                exec_metric = ExecutionMetric()
+                exec_score = exec_metric.measure(test_case)
+                exec_reason = getattr(exec_metric, 'reason', '')
+            else:
+                exec_score = None
+                exec_reason = "Skipped (pass --allow-code-execution to enable)"
 
             geval = GEval(
                 name="Code Requirements Checklist",
@@ -447,12 +457,12 @@ def run(
                 "actual_output": actual_output,
                 "scores": {
                     "ExecutionMetric": exec_score,
-                    "ExecutionReason": getattr(exec_metric, 'reason', ''),
+                    "ExecutionReason": exec_reason,
                     "GEval": geval_score,
                     "GEvalReason": getattr(geval, 'reason', '')
                 }
             })
-            print(f"   [DONE] Latency: {latency:.2f}s | GEval: {geval_score} | Exec: {exec_score}")
+            print(f"   [DONE] Latency: {latency:.2f}s | GEval: {geval_score} | Exec: {exec_score if exec_score is not None else 'skipped'}")
 
             push_metrics_to_prometheus(
                 experiment_name, combo_id, case['name'],

@@ -64,7 +64,7 @@ Now that basic classification and understanding are validated, we should expand 
 **Topic:** Architectural Insights on Inference Providers (vLLM vs Ollama)
 
 ## Executive Summary
-During the process of evaluating vision models (specifically `llama3.2-vision:11b` and `Qwen2-VL-7B`), we attempted to deploy a Tier 2 Vision Watchdog onto the SRE Node (`192.168.99.178`, RTX 3070 Ti) using `vLLM`.
+During the process of evaluating vision models (specifically `llama3.2-vision:11b` and `Qwen2-VL-7B`), we attempted to deploy a Tier 2 Vision Watchdog onto the SRE Node (`10.0.0.1`, RTX 3070 Ti) using `vLLM`.
 
 This deployment brought an architectural constraint to light: **vLLM requires static loading**. 
 
@@ -110,7 +110,7 @@ This report outlines the findings from the initial run of the `agent-status` MVP
 ### 2. Missing Log Collection (High)
 - **Issue**: Neither Unraid node is shipping logs to Loki (`logs: not_configured`).
 - **Impact**: Troubleshooting container crashes or array errors requires manual SSH access.
-- **Action**: Deploy Promtail or Alloy to Dionysus and Archive to stream `/var/log/syslog` and Docker container logs to the central Loki instance (`192.168.99.178:3100`).
+- **Action**: Deploy Promtail or Alloy to Dionysus and Archive to stream `/var/log/syslog` and Docker container logs to the central Loki instance (`10.0.0.1:3100`).
 
 ### 3. UniFi Remote Syslog (Medium)
 - **Issue**: Network devices (UDM, USW, UAPs) currently do not ship logs to our centralized observability stack.
@@ -124,7 +124,7 @@ This report outlines the findings from the initial run of the `agent-status` MVP
 
 ### 1. Fix Uptime Mapping Bug (Medium)
 - **Issue**: The SRE node (`homelab-sre`) reports its uptime as `unknown`.
-- **Cause**: Prometheus stores the instance label as `node-exporter` for this node. The script parses the label string directly, failing to map `node-exporter` back to the SRE node's IP (`192.168.99.178`) during the uptime phase.
+- **Cause**: Prometheus stores the instance label as `node-exporter` for this node. The script parses the label string directly, failing to map `node-exporter` back to the SRE node's IP (`10.0.0.1`) during the uptime phase.
 - **Action**: Update `fetch_node_uptimes()` to use the same label-to-IP mapping logic currently used in `fetch_prometheus_up_ips()`.
 
 ### 2. Add Storage Capacity Metrics (High)
@@ -146,7 +146,7 @@ A homelab CLI tool that queries live infrastructure data across the network and 
 
 ## What it does
 
-- Connects to [`homelab-mcp`](http://192.168.99.178:8083) over SSE to fetch UniFi infrastructure devices and all connected clients
+- Connects to [`homelab-mcp`](http://10.0.0.1:8083) over SSE to fetch UniFi infrastructure devices and all connected clients
 - Queries Prometheus (`:9091`) for live metrics scrape status and node uptimes
 - Queries Loki (`:3100`) to check log shipping status per host
 - Assembles a structured JSON report covering:
@@ -160,10 +160,10 @@ A homelab CLI tool that queries live infrastructure data across the network and 
 |---|---|
 | Python | ≥ 3.14 |
 | Package manager | [`uv`](https://docs.astral.sh/uv/) |
-| MCP server | `homelab-mcp` running at `http://192.168.99.178:8083/sse` |
-| LiteLLM proxy | Running at `http://192.168.99.178:4000/v1` with `ollama/qwen2.5-coder:14b` |
-| Prometheus | Running at `http://192.168.99.178:9091` |
-| Loki | Running at `http://192.168.99.178:3100` |
+| MCP server | `homelab-mcp` running at `http://10.0.0.1:8083/sse` |
+| LiteLLM proxy | Running at `http://10.0.0.1:4000/v1` with `ollama/qwen2.5-coder:14b` |
+| Prometheus | Running at `http://10.0.0.1:9091` |
+| Loki | Running at `http://10.0.0.1:3100` |
 
 ## Running
 
@@ -191,7 +191,7 @@ uv run agent_status.py | jq '[.clients[] | select(.connection_type == "wireless"
       "mac": "",
       "device_type": "server",        // server | udm | usw | uap
       "version": "Linux",
-      "ip_address": "192.168.99.178",
+      "ip_address": "10.0.0.1",
       "uptime": "9d 20h 12m 57s",
       "state": "running",
       "interfaces": [],
@@ -205,7 +205,7 @@ uv run agent_status.py | jq '[.clients[] | select(.connection_type == "wireless"
     {
       "hostname": "boys-pcp",
       "mac": "70:d8:c2:14:8e:e4",
-      "ip_address": "192.168.99.251",
+      "ip_address": "10.0.0.5",
       "connection_type": "wired",     // wired | wireless
       "uplink": "USW Pro 24 PoE",
       "vlan": "Default",
@@ -224,7 +224,7 @@ uv run agent_status.py | jq '[.clients[] | select(.connection_type == "wireless"
 |---|---|---|---|
 | UniFi APs / Switch / Gateway | `n/a` | `n/a` | `n/a` |
 | Unraid nodes (Dionysus, Archive) | `not_configured` | live Prometheus check | `n/a` |
-| SRE machine (`192.168.99.178`) | `working` | live Prometheus check | `working` |
+| SRE machine (`10.0.0.1`) | `working` | live Prometheus check | `working` |
 
 Metrics status is determined by querying the live `/api/v1/targets` endpoint — a node is `working` if at least one target for its IP (or a known Docker job like `node-exporter` / `cadvisor`) is healthy.
 
@@ -302,8 +302,8 @@ This homelab utilizes two primary GPU nodes:
 - **SRE Machine (RTX 3070 Ti)**: Best for lighter models or quick tests (e.g., 1.5B - 8B parameters).
 
 By default, the CLI will use:
-- **LiteLLM Proxy:** `http://192.168.99.178:4000/v1` (Running on the SRE Machine)
-- **OTLP Trace Exporter:** `http://192.168.99.178:4319/v1/traces`
+- **LiteLLM Proxy:** `http://10.0.0.1:4000/v1` (Running on the SRE Machine)
+- **OTLP Trace Exporter:** `http://10.0.0.1:4319/v1/traces`
 
 When hitting LiteLLM, requests are automatically routed to the correct machine based on the model specified in your YAML (e.g., `ollama/llama3.1:8b`). You can override the proxy or telemetry endpoints by setting the `LITELLM_API_BASE` and `OTEL_EXPORTER_OTLP_ENDPOINT` environment variables.
 

@@ -55,8 +55,8 @@ Do not add new workflow types without a corresponding example YAML in `examples/
 ## 5. Homelab Integration
 
 When running inside the homelab:
-- Set `PROMETHEUS_PUSHGATEWAY_URL` to push metrics to the Pushgateway at `http://192.168.99.178:9091`
-- Set `OTEL_EXPORTER_OTLP_ENDPOINT=http://192.168.99.178:4319` to send traces to Grafana Alloy → Arize Phoenix
+- Set `PROMETHEUS_PUSHGATEWAY_URL` to push metrics to your Pushgateway (e.g. `http://<host>:9091`)
+- Set `OTEL_EXPORTER_OTLP_ENDPOINT=http://<host>:4319` to send traces to Grafana Alloy → Arize Phoenix
 - Production experiment configs live in `homelab-platform/services/dagu/dags/experiments-config/` as Dagu DAG YAMLs
 
 ## 6. CI/CD & Releases
