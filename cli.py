@@ -78,7 +78,7 @@ class CustomLiteLLM(DeepEvalBaseLLM):
             response_format={"type": "json_object"},
             timeout=1200
         )
-        return res.choices[0].message.content
+        return res.choices[0].message.content or ""
 
     async def a_generate(self, prompt: str) -> str:
         proxy_model, api_base, is_direct = resolve_endpoint(self.model_name)
@@ -92,7 +92,7 @@ class CustomLiteLLM(DeepEvalBaseLLM):
             response_format={"type": "json_object"},
             timeout=1200
         )
-        return res.choices[0].message.content
+        return res.choices[0].message.content or ""
 
     def get_model_name(self):
         return self.model_name
@@ -182,7 +182,7 @@ def agent_task(model_name: str, system_prompt: str, input_prompt: str, num_ctx: 
             timeout=1200
         )
         latency = time.time() - start_time
-        output = response.choices[0].message.content
+        output = response.choices[0].message.content or ""
         usage = response.usage.model_dump() if response.usage else {}
 
     # Strip <think> tags from reasoning model output before scoring
@@ -356,121 +356,123 @@ def run(
         for model in models_to_test:
             combinations.append({"model": model})
 
-    for combo in combinations:
-        model_name = combo.get('model', combo.get('orchestrator', combo.get('generator', 'pipeline')))
-        combo_id = "_".join([v.replace("/", "-").replace(":", "-") for k, v in combo.items()])
-        print(f"\n>> Evaluating Pipeline/Model: {combo_id}")
-
-        for case in exp.get('test_cases', []):
-            try:
-                if case['input_file'].lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
-                    with open(case['input_file'], "rb") as f:
-                        base64_image = base64.b64encode(f.read()).decode('utf-8')
-                    input_prompt = [
-                        {"type": "text", "text": case.get('task_prompt', '')},
-                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
-                    ]
+    try:
+        for combo in combinations:
+            model_name = combo.get('model', combo.get('orchestrator', combo.get('generator', 'pipeline')))
+            combo_id = "_".join([v.replace("/", "-").replace(":", "-") for k, v in combo.items()])
+            print(f"\n>> Evaluating Pipeline/Model: {combo_id}")
+    
+            for case in exp.get('test_cases', []):
+                try:
+                    if case['input_file'].lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
+                        with open(case['input_file'], "rb") as f:
+                            base64_image = base64.b64encode(f.read()).decode('utf-8')
+                        input_prompt = [
+                            {"type": "text", "text": case.get('task_prompt', '')},
+                            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+                        ]
+                    else:
+                        with open(case['input_file'], "r") as f:
+                            input_content = f.read()
+                        input_prompt = f"{case.get('task_prompt', '')}\n\nCode/Input:\n{input_content}"
+                except FileNotFoundError:
+                    print(f"[!] Could not read input file {case['input_file']}")
+                    continue
+    
+                expected_output = case.get('expected_output_criteria', '')
+    
+                print(f"   Running case: {case['name']}...")
+    
+                if workflow == "multi_agent_blog_gen":
+                    gen_m = combo['generator']
+                    crit_m = combo['critic']
+                    ref_m = combo['refiner']
+                    actual_output, latency, usage, draft, critique = multi_agent_blog_task(gen_m, crit_m, ref_m, exp['system_prompt'], input_prompt)
+    
+                    artifact_dir = "results/artifacts"
+                    os.makedirs(artifact_dir, exist_ok=True)
+                    safe_case = case['name'].replace(' ', '_').replace('/', '-')
+                    artifact_path = os.path.join(artifact_dir, f"Blog_{combo_id}_{safe_case}.md")
+                    with open(artifact_path, "w") as af:
+                        af.write(f"# Pipeline: {combo_id}\n\n## Final V2 Blog Post\n\n{actual_output}\n\n---\n## Critic Feedback on V1\n\n{critique}")
+                    print(f"   [+] Saved artifact to {artifact_path}")
+                elif workflow == "mob_of_experts":
+                    orch_m = combo['orchestrator']
+                    gen_m = combo['generator']
+                    crit_m = combo['critic']
+                    ref_m = combo['refiner']
+                    actual_output, latency, usage, draft_a, draft_b, orch_out = mob_of_experts_task(
+                        orch_m, gen_m, crit_m, ref_m, exp['system_prompt'], input_prompt
+                    )
+    
+                    artifact_dir = "results/artifacts"
+                    os.makedirs(artifact_dir, exist_ok=True)
+                    safe_case = case['name'].replace(' ', '_').replace('/', '-')
+                    artifact_path = os.path.join(artifact_dir, f"Mob_{combo_id}_{safe_case}.md")
+                    with open(artifact_path, "w") as af:
+                        af.write(f"# Pipeline: {combo_id}\n\n## Final Synthesis\n\n{actual_output}\n\n---\n## Orchestrator Prompts\n\n{orch_out}\n\n---\n## Expert A Draft\n\n{draft_a}\n\n---\n## Expert B Draft\n\n{draft_b}")
+                    print(f"   [+] Saved artifact to {artifact_path}")
+                elif workflow == "multi_agent_triage":
+                    subagent_model = exp.get("subagent_model", "ollama/qwen2.5-coder:7b")
+                    mock_promql_file = exp.get("mock_promql_file", "examples/inputs/mock_promql_result.json")
+                    mock_logql_file = exp.get("mock_logql_file", "examples/inputs/mock_logql_result.json")
+                    actual_output, latency, usage = multi_agent_triage_task(
+                        model_name, subagent_model, exp['system_prompt'], input_prompt,
+                        mock_promql_file=mock_promql_file,
+                        mock_logql_file=mock_logql_file,
+                    )
                 else:
-                    with open(case['input_file'], "r") as f:
-                        input_content = f.read()
-                    input_prompt = f"{case.get('task_prompt', '')}\n\nCode/Input:\n{input_content}"
-            except FileNotFoundError:
-                print(f"[!] Could not read input file {case['input_file']}")
-                continue
-
-            expected_output = case.get('expected_output_criteria', '')
-
-            print(f"   Running case: {case['name']}...")
-
-            if workflow == "multi_agent_blog_gen":
-                gen_m = combo['generator']
-                crit_m = combo['critic']
-                ref_m = combo['refiner']
-                actual_output, latency, usage, draft, critique = multi_agent_blog_task(gen_m, crit_m, ref_m, exp['system_prompt'], input_prompt)
-
-                artifact_dir = "results/artifacts"
-                os.makedirs(artifact_dir, exist_ok=True)
-                safe_case = case['name'].replace(' ', '_').replace('/', '-')
-                artifact_path = os.path.join(artifact_dir, f"Blog_{combo_id}_{safe_case}.md")
-                with open(artifact_path, "w") as af:
-                    af.write(f"# Pipeline: {combo_id}\n\n## Final V2 Blog Post\n\n{actual_output}\n\n---\n## Critic Feedback on V1\n\n{critique}")
-                print(f"   [+] Saved artifact to {artifact_path}")
-            elif workflow == "mob_of_experts":
-                orch_m = combo['orchestrator']
-                gen_m = combo['generator']
-                crit_m = combo['critic']
-                ref_m = combo['refiner']
-                actual_output, latency, usage, draft_a, draft_b, orch_out = mob_of_experts_task(
-                    orch_m, gen_m, crit_m, ref_m, exp['system_prompt'], input_prompt
+                    num_ctx = exp.get("num_ctx", 4096)
+                    actual_output, latency, usage = agent_task(model_name, exp['system_prompt'], input_prompt, num_ctx=num_ctx)
+    
+                test_case_input = input_prompt if isinstance(input_prompt, str) else case.get('task_prompt', '')
+                test_case = LLMTestCase(
+                    input=test_case_input,
+                    actual_output=actual_output,
+                    expected_output=expected_output
                 )
-
-                artifact_dir = "results/artifacts"
-                os.makedirs(artifact_dir, exist_ok=True)
-                safe_case = case['name'].replace(' ', '_').replace('/', '-')
-                artifact_path = os.path.join(artifact_dir, f"Mob_{combo_id}_{safe_case}.md")
-                with open(artifact_path, "w") as af:
-                    af.write(f"# Pipeline: {combo_id}\n\n## Final Synthesis\n\n{actual_output}\n\n---\n## Orchestrator Prompts\n\n{orch_out}\n\n---\n## Expert A Draft\n\n{draft_a}\n\n---\n## Expert B Draft\n\n{draft_b}")
-                print(f"   [+] Saved artifact to {artifact_path}")
-            elif workflow == "multi_agent_triage":
-                subagent_model = exp.get("subagent_model", "ollama/qwen2.5-coder:7b")
-                mock_promql_file = exp.get("mock_promql_file", "examples/inputs/mock_promql_result.json")
-                mock_logql_file = exp.get("mock_logql_file", "examples/inputs/mock_logql_result.json")
-                actual_output, latency, usage = multi_agent_triage_task(
-                    model_name, subagent_model, exp['system_prompt'], input_prompt,
-                    mock_promql_file=mock_promql_file,
-                    mock_logql_file=mock_logql_file,
+    
+                print(f"   Grading Output...")
+                if allow_code_execution:
+                    exec_metric = ExecutionMetric()
+                    exec_score = exec_metric.measure(test_case)
+                    exec_reason = getattr(exec_metric, 'reason', '')
+                else:
+                    exec_score = None
+                    exec_reason = "Skipped (pass --allow-code-execution to enable)"
+    
+                geval = GEval(
+                    name="Code Requirements Checklist",
+                    criteria=expected_output,
+                    evaluation_params=[SingleTurnParams.INPUT, SingleTurnParams.ACTUAL_OUTPUT],
+                    model=CustomLiteLLM(judge_model)
                 )
-            else:
-                num_ctx = exp.get("num_ctx", 4096)
-                actual_output, latency, usage = agent_task(model_name, exp['system_prompt'], input_prompt, num_ctx=num_ctx)
-
-            test_case_input = input_prompt if isinstance(input_prompt, str) else case.get('task_prompt', '')
-            test_case = LLMTestCase(
-                input=test_case_input,
-                actual_output=actual_output,
-                expected_output=expected_output
-            )
-
-            print(f"   Grading Output...")
-            if allow_code_execution:
-                exec_metric = ExecutionMetric()
-                exec_score = exec_metric.measure(test_case)
-                exec_reason = getattr(exec_metric, 'reason', '')
-            else:
-                exec_score = None
-                exec_reason = "Skipped (pass --allow-code-execution to enable)"
-
-            geval = GEval(
-                name="Code Requirements Checklist",
-                criteria=expected_output,
-                evaluation_params=[SingleTurnParams.INPUT, SingleTurnParams.ACTUAL_OUTPUT],
-                model=CustomLiteLLM(judge_model)
-            )
-
-            geval_score = asyncio.run(geval.a_measure(test_case))
-
-            results["runs"].append({
-                "pipeline": combo,
-                "case_name": case['name'],
-                "latency_sec": round(latency, 3),
-                "tokens": usage,
-                "actual_output": actual_output,
-                "scores": {
-                    "ExecutionMetric": exec_score,
-                    "ExecutionReason": exec_reason,
-                    "GEval": geval_score,
-                    "GEvalReason": getattr(geval, 'reason', '')
-                }
-            })
-            print(f"   [DONE] Latency: {latency:.2f}s | GEval: {geval_score} | Exec: {exec_score if exec_score is not None else 'skipped'}")
-
-            push_metrics_to_prometheus(
-                experiment_name, combo_id, case['name'],
-                {"ExecutionMetric": exec_score, "GEval": geval_score},
-                latency
-            )
-
-    save_experiment_results(experiment_name, results)
+    
+                geval_score = asyncio.run(geval.a_measure(test_case))
+    
+                results["runs"].append({
+                    "pipeline": combo,
+                    "case_name": case['name'],
+                    "latency_sec": round(latency, 3),
+                    "tokens": usage,
+                    "actual_output": actual_output,
+                    "scores": {
+                        "ExecutionMetric": exec_score,
+                        "ExecutionReason": exec_reason,
+                        "GEval": geval_score,
+                        "GEvalReason": getattr(geval, 'reason', '')
+                    }
+                })
+                print(f"   [DONE] Latency: {latency:.2f}s | GEval: {geval_score} | Exec: {exec_score if exec_score is not None else 'skipped'}")
+    
+                push_metrics_to_prometheus(
+                    experiment_name, combo_id, case['name'],
+                    {"ExecutionMetric": exec_score, "GEval": geval_score},
+                    latency
+                )
+    
+    finally:
+        save_experiment_results(experiment_name, results)
 
 if __name__ == "__main__":
     app()
