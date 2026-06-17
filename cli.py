@@ -326,7 +326,16 @@ def run(
     ),
 ):
     """Run an agent experiment defined in a YAML spec."""
+    asyncio.run(_run_eval(config_path, allow_code_execution))
 
+
+async def _run_eval(config_path: str, allow_code_execution: bool) -> None:
+    """Async core of the run command.
+
+    Keeping all eval work in a single coroutine means we only create one event
+    loop per invocation, and judge calls (geval.a_measure) can later be
+    parallelised with asyncio.gather() without restructuring.
+    """
     setup_tracing()
 
     with open(config_path, "r") as f:
@@ -361,7 +370,7 @@ def run(
             model_name = combo.get('model', combo.get('orchestrator', combo.get('generator', 'pipeline')))
             combo_id = "_".join([v.replace("/", "-").replace(":", "-") for k, v in combo.items()])
             print(f"\n>> Evaluating Pipeline/Model: {combo_id}")
-    
+
             for case in exp.get('test_cases', []):
                 try:
                     if case['input_file'].lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
@@ -378,17 +387,17 @@ def run(
                 except FileNotFoundError:
                     print(f"[!] Could not read input file {case['input_file']}")
                     continue
-    
+
                 expected_output = case.get('expected_output_criteria', '')
-    
+
                 print(f"   Running case: {case['name']}...")
-    
+
                 if workflow == "multi_agent_blog_gen":
                     gen_m = combo['generator']
                     crit_m = combo['critic']
                     ref_m = combo['refiner']
                     actual_output, latency, usage, draft, critique = multi_agent_blog_task(gen_m, crit_m, ref_m, exp['system_prompt'], input_prompt)
-    
+
                     artifact_dir = "results/artifacts"
                     os.makedirs(artifact_dir, exist_ok=True)
                     safe_case = case['name'].replace(' ', '_').replace('/', '-')
@@ -404,7 +413,7 @@ def run(
                     actual_output, latency, usage, draft_a, draft_b, orch_out = mob_of_experts_task(
                         orch_m, gen_m, crit_m, ref_m, exp['system_prompt'], input_prompt
                     )
-    
+
                     artifact_dir = "results/artifacts"
                     os.makedirs(artifact_dir, exist_ok=True)
                     safe_case = case['name'].replace(' ', '_').replace('/', '-')
@@ -424,14 +433,14 @@ def run(
                 else:
                     num_ctx = exp.get("num_ctx", 4096)
                     actual_output, latency, usage = agent_task(model_name, exp['system_prompt'], input_prompt, num_ctx=num_ctx)
-    
+
                 test_case_input = input_prompt if isinstance(input_prompt, str) else case.get('task_prompt', '')
                 test_case = LLMTestCase(
                     input=test_case_input,
                     actual_output=actual_output,
                     expected_output=expected_output
                 )
-    
+
                 print(f"   Grading Output...")
                 if allow_code_execution:
                     exec_metric = ExecutionMetric()
@@ -440,16 +449,16 @@ def run(
                 else:
                     exec_score = None
                     exec_reason = "Skipped (pass --allow-code-execution to enable)"
-    
+
                 geval = GEval(
                     name="Code Requirements Checklist",
                     criteria=expected_output,
                     evaluation_params=[SingleTurnParams.INPUT, SingleTurnParams.ACTUAL_OUTPUT],
                     model=CustomLiteLLM(judge_model)
                 )
-    
-                geval_score = asyncio.run(geval.a_measure(test_case))
-    
+
+                geval_score = await geval.a_measure(test_case)
+
                 results["runs"].append({
                     "pipeline": combo,
                     "case_name": case['name'],
@@ -464,13 +473,13 @@ def run(
                     }
                 })
                 print(f"   [DONE] Latency: {latency:.2f}s | GEval: {geval_score} | Exec: {exec_score if exec_score is not None else 'skipped'}")
-    
+
                 push_metrics_to_prometheus(
                     experiment_name, combo_id, case['name'],
                     {"ExecutionMetric": exec_score, "GEval": geval_score},
                     latency
                 )
-    
+
     finally:
         save_experiment_results(experiment_name, results)
 
