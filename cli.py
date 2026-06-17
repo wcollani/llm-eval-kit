@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import typer
 import os
+import tempfile
 import yaml
 import time
 import subprocess
@@ -113,11 +114,12 @@ class ExecutionMetric(BaseMetric):
         if code.endswith("```"):
             code = code[:-3]
 
-        with open("temp_output.py", "w") as f:
+        with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False) as f:
             f.write(code.strip())
+            tmp_path = f.name
 
         try:
-            subprocess.run(["python3", "temp_output.py"], timeout=10, check=True, capture_output=True)
+            subprocess.run(["python3", tmp_path], timeout=10, check=True, capture_output=True)
             self.score = 1.0
             self.success = True
             self.reason = "Code executed successfully with Exit Code 0."
@@ -129,6 +131,8 @@ class ExecutionMetric(BaseMetric):
             self.score = 0.0
             self.success = False
             self.reason = f"Code failed with exit code {e.returncode}. Stderr: {e.stderr.decode('utf-8')[:200]}"
+        finally:
+            os.unlink(tmp_path)
 
         return self.score
 
