@@ -29,20 +29,23 @@ def setup_tracing(service_name="agent-testing-cli", endpoint=None):
     trace.set_tracer_provider(provider)
     print(f"[*] OpenTelemetry configured to export to {endpoint}")
 
-def save_experiment_results(experiment_name, results):
+def save_experiment_results(experiment_name, results, output_path=None):
     """
     Dumps the results into a standardized JSON file.
+
+    If output_path is provided (e.g. when resuming), overwrites that file.
+    Otherwise creates a new timestamped file under results/.
     """
     os.makedirs("results", exist_ok=True)
-    # Sanitize experiment name for file path
-    safe_name = "".join([c if c.isalnum() else "_" for c in experiment_name])
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"results/{safe_name}_{timestamp}.json"
-    
-    with open(filename, "w") as f:
+    if output_path is None:
+        safe_name = "".join([c if c.isalnum() else "_" for c in experiment_name])
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_path = f"results/{safe_name}_{timestamp}.json"
+
+    with open(output_path, "w") as f:
         json.dump(results, f, indent=4)
 
-    print(f"[*] Results saved to {filename}")
+    print(f"[*] Results saved to {output_path}")
 
 def push_metrics_to_prometheus(experiment_name, model_name, case_name, scores, latency_sec, gateway_url=None):
     """

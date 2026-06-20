@@ -9,7 +9,7 @@ Engineering improvements to llm-eval-kit, organized by phase. Phase 1 focuses on
 **PyPI packaging**
 Make the CLI installable via `pip install llm-eval-kit` or `pipx install llm-eval-kit`. Add `pyproject.toml` with a `[project.scripts]` entry so `llm-eval` works as a shell command. Currently requires cloning the repo.
 
-**`--dry-run` flag**
+**`--dry-run` flag** ✅ *done*
 Validate a YAML experiment and print what would run (models, test cases, workflow, file paths) without calling any LLM. Catches missing input files and schema errors before a long run.
 
 **GitHub Actions CI**
@@ -22,17 +22,17 @@ Let users specify a custom output path for the results JSON instead of always wr
 
 ## Phase 2 — Evaluation Depth
 
-**Parallel model evaluation**
-Run multiple models concurrently via `asyncio.gather` instead of a sequential loop. With 8 models and 30s average latency, sequential takes 4+ minutes; parallel takes ~30s. The async infrastructure is already there (`a_generate`, `a_measure`).
+**Parallel model evaluation** ✅ *done*
+Run multiple models concurrently via `asyncio.gather` instead of a sequential loop. With 8 models and 30s average latency, sequential takes 4+ minutes; parallel takes ~30s. Enable with `--parallel`.
 
 **Custom metric plugins**
 Allow users to define a custom `BaseMetric` subclass in a Python file and reference it from the YAML (`custom_metric: path/to/metric.py`). Currently limited to `ExecutionMetric` and `GEval`. Would let users add regex-match metrics, length checks, JSON schema validation, etc.
 
-**Result comparison CLI command**
-Add a `compare` subcommand: `python cli.py compare results/run_a.json results/run_b.json`. Outputs a table of score and latency differences per model/case. Useful when iterating on prompts or swapping models.
+**Result comparison CLI command** ✅ *done*
+`python cli.py compare results/run_a.json results/run_b.json`. Outputs a table of score and latency differences per model/case. Useful when iterating on prompts or swapping models.
 
-**`--resume` flag**
-Skip test cases that already have results in a JSON file. Long experiments (10+ models × 5 cases) can fail partway through; resuming saves time and tokens.
+**`--resume` flag** ✅ *done*
+Skip test cases that already have results in the most recent JSON file for the experiment. Long experiments (10+ models × 5 cases) can fail partway through; resuming saves time and tokens.
 
 **LiteLLM config file support**
 Add `--litellm-config path/to/config.yaml` to load a LiteLLM router config for complex routing setups (load balancing, fallbacks, rate limits). Currently the flag exists as a dead stub — wire it up or remove it entirely.
