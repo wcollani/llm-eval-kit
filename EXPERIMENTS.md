@@ -67,6 +67,32 @@ Add 1-3 worked examples to the `task_prompt` for a code or triage task and compa
 
 ---
 
+## Tool Calling
+
+**Tool-call format reliability across a model family**
+Run `workflow: tool_calling` over every size in a family (e.g. 7B / 14B / 32B) against the same
+tool schemas. The interesting outcome is not the score but the `ToolCallFailureMode`: a whole
+family can share an `unparsed_call` defect regardless of size, which no amount of scaling fixes
+and which text-based scoring will not reveal. Pair with `arguments_contains` so a legitimately
+varying query or path doesn't count as a failure.
+
+**Transport parity**
+Run the same tool-calling experiment twice, once with `ws/`/`sre/` prefixes (OpenAI-compat `/v1`)
+and once with `direct_ws/`/`direct_sre/` (native `/api/chat`), then `compare` the two results
+files. Any per-model delta is a transport or parser difference rather than a model capability
+difference — worth pinning before trusting either number.
+
+**Tool count and context pressure**
+Offer 1, 5, and 20 tool schemas at a fixed `num_ctx` and watch where tool selection accuracy
+falls off. Real agents present far more tools than a benchmark usually does, and schemas consume
+context before the task prompt is even read.
+
+**Prompt explicitness**
+The same tool and task, phrased as an implicit question ("what is the CPU usage of X?") vs. an
+explicit instruction ("call get_prometheus_metric for X"). A model that only calls tools when
+told to is unsuitable for an autonomous lane, and the gap between the two phrasings measures that
+directly.
+
 ## Multi-Agent Pipeline Quality
 
 **Pipeline depth comparison**

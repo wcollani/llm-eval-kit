@@ -59,8 +59,60 @@ test_cases:
 | `multi_agent_blog_gen` | Generator → Critic → Refiner pipeline | `pipeline_combinations` |
 | `mob_of_experts` | Orchestrator fans out to two parallel Gen-Crit-Ref pipelines, then synthesizes | `mob_combinations` |
 | `multi_agent_triage` | Subagent generates PromQL + LogQL; orchestrator synthesizes remediation plan | `orchestrator_models`, `subagent_model` |
+| `tool_calling` | Offers real tool schemas and scores the tool calls the model emits | `models_to_test`, `tools` |
 
 See `examples/` for a working YAML for each workflow type.
+
+### Tool calling
+
+`tool_calling` sends a real `tools` array and scores what comes back with `ToolCallMetric` — no
+judge model involved, since either the right tool arrived with the right arguments or it did not.
+
+```yaml
+workflow: "tool_calling"
+num_ctx: 16384
+tools:                      # inline schemas, or a path to a .json/.yaml file
+  - type: function
+    function:
+      name: get_prometheus_metric
+      description: Query a Prometheus metric
+      parameters:
+        type: object
+        properties:
+          query: {type: string}
+        required: ["query"]
+test_cases:
+  - name: "Implicit metric lookup"
+    task_prompt: "What is the CPU usage of container api-server-1 right now?"
+    expected_tool_calls:
+      - name: get_prometheus_metric
+        arguments_contains:        # substring match, for values that vary
+          query: "api-server-1"
+```
+
+Use `arguments` for exact matches (string comparison is case-insensitive) and
+`arguments_contains` for values that legitimately vary between runs, like a generated query or a
+path. `input_file` is optional for this workflow — a `task_prompt` alone is enough — and
+`expected_output_criteria` is optional too; supply it only if you also want the prose graded.
+
+`ToolCallMetric` reports *how* a case failed, because the fixes differ:
+
+| `ToolCallFailureMode` | Meaning |
+|---|---|
+| `ok` | Expected call(s) emitted and parsed. |
+| `no_call` | Model answered in prose and never attempted a tool call. |
+| `unparsed_call` | Model emitted a tool call **in its content** that the server never parsed into structured `tool_calls`. The model chose correctly; the plumbing dropped it — usually a chat template/parser mismatch for that tag. An agent sees no tool call either way. |
+| `wrong_tool` | A tool was called, but not the expected one. |
+| `bad_arguments` | Right tool, wrong or missing arguments (scores 0.5). |
+| `unwanted_call` | A case marked `expect_no_tool_call: true` got a tool call anyway. |
+
+Set `expect_no_tool_call: true` (instead of `expected_tool_calls`) on a case the model should
+answer directly. Over-eager tool use is its own failure — an agent that reaches for a tool on
+every turn burns context and latency on questions it could have answered.
+
+`unparsed_call` is worth calling out: a model can advertise `tools` in its Ollama `capabilities`,
+pick the right tool, produce perfect arguments, and still be unusable in an agent because the
+call never parses. Text-based scoring rates that output highly. This metric does not.
 
 ## Routing Models
 
@@ -101,11 +153,15 @@ Each run writes `results/<safe_name>_<timestamp>.json`:
       "latency_sec": 4.21,
       "tokens": {"prompt_tokens": 312, "completion_tokens": 89, "total_tokens": 401},
       "actual_output": "...",
+      "tool_calls": [],
       "scores": {
         "ExecutionMetric": 1.0,
         "ExecutionReason": "Code executed successfully with Exit Code 0.",
         "GEval": 0.85,
-        "GEvalReason": "The output mentions patterns A and B but omits C."
+        "GEvalReason": "The output mentions patterns A and B but omits C.",
+        "ToolCallMetric": null,
+        "ToolCallReason": "Skipped (no expected_tool_calls)",
+        "ToolCallFailureMode": null
       }
     }
   ]
@@ -113,6 +169,11 @@ Each run writes `results/<safe_name>_<timestamp>.json`:
 ```
 
 `ExecutionMetric` only applies to code generation tasks (runs the output as Python and checks exit code). For non-code tasks it will score 0 — rely on `GEval` for those.
+
+`ToolCallMetric` is `null` unless the case defines `expected_tool_calls`, and `GEval` is `null`
+unless it defines `expected_output_criteria` — a judge is never asked to grade against an empty
+rubric. `tool_calls` holds the parsed calls, normalized to `{"name", "arguments"}` regardless of
+which transport produced them.
 
 Multi-agent workflow artifacts (blog drafts, mob expert outputs) are saved to `results/artifacts/`.
 
@@ -128,6 +189,7 @@ Multi-agent workflow artifacts (blog drafts, mob expert outputs) are saved to `r
 | `examples/promql-generation.yaml` | single_agent | PromQL query generation accuracy |
 | `examples/logql-summarization.yaml` | single_agent | Log summarization / root cause identification |
 | `examples/alert-triage.yaml` | multi_agent_triage | 3-phase alert triage pipeline |
+| `examples/tool-calling.yaml` | tool_calling | Whether a model emits parseable tool calls |
 | `examples/homelab/` | various | Homelab-specific reference experiments |
 
 ## Utilities

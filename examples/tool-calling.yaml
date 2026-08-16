@@ -1,0 +1,56 @@
+experiment_name: "Tool Calling Reliability"
+workflow: "tool_calling"
+system_prompt: "You are an SRE agent with tools available. Use them when appropriate."
+
+# num_ctx matters here: an agent's real system prompt plus tool schemas is far larger than
+# the 4096 default, and a model that silently loses its tool definitions to truncation looks
+# identical to one that can't call tools.
+num_ctx: 16384
+
+models_to_test:
+  - "ws/hermes3:8b"
+  - "sre/hermes3:8b"
+
+# Tool schemas may be inline (as below) or a path to a .json/.yaml file.
+tools:
+  - type: function
+    function:
+      name: get_prometheus_metric
+      description: Query a Prometheus metric
+      parameters:
+        type: object
+        properties:
+          query:
+            type: string
+            description: PromQL query
+        required: ["query"]
+  - type: function
+    function:
+      name: read_file
+      description: Read a file from the repository
+      parameters:
+        type: object
+        properties:
+          path:
+            type: string
+            description: Path relative to the repository root
+        required: ["path"]
+
+test_cases:
+  - name: "Implicit metric lookup"
+    task_prompt: "What is the CPU usage of container api-server-1 right now?"
+    expected_tool_calls:
+      - name: get_prometheus_metric
+        arguments_contains:
+          query: "api-server-1"
+
+  - name: "Explicit file read"
+    task_prompt: "Read the file README.md at the repository root and tell me the first heading."
+    expected_tool_calls:
+      - name: read_file
+        arguments:
+          path: "README.md"
+
+# judge_model is only consulted for cases that define expected_output_criteria; a pure
+# tool-calling experiment never calls it.
+judge_model: "ws/qwen2.5-coder:14b"

@@ -25,8 +25,20 @@ Let users specify a custom output path for the results JSON instead of always wr
 **Parallel model evaluation** ✅ *done*
 Run multiple models concurrently via `asyncio.gather` instead of a sequential loop. With 8 models and 30s average latency, sequential takes 4+ minutes; parallel takes ~30s. Enable with `--parallel`.
 
+**Tool-calling evaluation** ✅ *done*
+`workflow: tool_calling` sends real tool schemas and scores the emitted calls with
+`ToolCallMetric`, deterministically and without a judge model. Reports a failure mode rather than
+just a score, so `unparsed_call` (model emitted a call the server never parsed) is distinguishable
+from `no_call` (model never tried).
+
+**Repeated sampling**
+Tool calling is not deterministic — the same model on the same prompt can emit a call on one run
+and prose on the next. A `repeats: N` field that runs each case N times and reports the pass rate
+(rather than a single sample) would make tool-calling results trustworthy enough to base a model
+choice on. Currently a single sample per case can mislead in either direction.
+
 **Custom metric plugins**
-Allow users to define a custom `BaseMetric` subclass in a Python file and reference it from the YAML (`custom_metric: path/to/metric.py`). Currently limited to `ExecutionMetric` and `GEval`. Would let users add regex-match metrics, length checks, JSON schema validation, etc.
+Allow users to define a custom `BaseMetric` subclass in a Python file and reference it from the YAML (`custom_metric: path/to/metric.py`). Currently limited to `ExecutionMetric`, `GEval`, and `ToolCallMetric`. Would let users add regex-match metrics, length checks, JSON schema validation, etc.
 
 **Result comparison CLI command** ✅ *done*
 `python cli.py compare results/run_a.json results/run_b.json`. Outputs a table of score and latency differences per model/case. Useful when iterating on prompts or swapping models.

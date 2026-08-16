@@ -146,8 +146,167 @@ class ExecutionMetric(BaseMetric):
     def __name__(self):
         return "Programmatic Execution"
 
-def agent_task(model_name: str, system_prompt: str, input_prompt: str, num_ctx: int = 4096):
-    """Executes the agent task using litellm routing or direct ollama hit."""
+class ToolCallMetric(BaseMetric):
+    """Deterministic scoring of emitted tool calls against expected ones.
+
+    Unlike GEval this asks no judge model — either the right tool came back with the right
+    arguments or it did not. It also names *how* it failed, because the failure modes need
+    different fixes:
+
+      ok             — expected call(s) emitted and parsed
+      no_call        — model answered in prose and never tried to call a tool
+      unparsed_call  — model emitted a tool call in its content that the server never parsed
+                       into structured tool_calls (template/parser mismatch). The model chose
+                       correctly; the plumbing dropped it. An agent sees nothing either way.
+      wrong_tool     — a tool was called, but not the expected one
+      bad_arguments  — right tool, wrong or missing arguments
+      unwanted_call  — a case marked `expect_no_tool_call` got one anyway (over-eager tool use)
+
+    Expected calls come from a test case's `expected_tool_calls`:
+
+        expected_tool_calls:
+          - name: get_prometheus_metric
+            arguments:            # exact match, string compare is case-insensitive
+              query: "up"
+            arguments_contains:   # substring match, for values that vary (queries, paths)
+              query: "api-server-1"
+    """
+
+    # A bare {"name": ..., "arguments": ...} object or a <tool_call> wrapper left in the text
+    _UNPARSED_PATTERNS = (
+        re.compile(r"<tool_call>", re.IGNORECASE),
+        re.compile(r'\{\s*"name"\s*:\s*".+?"\s*,\s*"arguments"\s*:', re.DOTALL),
+        re.compile(r'\{\s*"function"\s*:\s*\{', re.DOTALL),
+    )
+
+    def __init__(
+        self,
+        expected_calls: list[dict],
+        tool_calls: list[dict],
+        raw_content: str = "",
+        threshold: float = 1.0,
+        expect_no_call: bool = False,
+    ):
+        self.expected_calls = expected_calls or []
+        self.tool_calls = tool_calls or []
+        self.raw_content = raw_content or ""
+        self.threshold = threshold
+        self.expect_no_call = expect_no_call
+        self.score = 0.0
+        self.reason = None
+        self.failure_mode = None
+        self.success = False
+
+    def _looks_like_unparsed_call(self) -> bool:
+        return any(p.search(self.raw_content) for p in self._UNPARSED_PATTERNS)
+
+    @staticmethod
+    def _args_match(expected: dict, contains: dict, actual: dict) -> tuple[bool, str]:
+        for key, want in (expected or {}).items():
+            if key not in actual:
+                return False, f"missing argument '{key}'"
+            got = actual[key]
+            if isinstance(want, str) and isinstance(got, str):
+                if want.strip().lower() != got.strip().lower():
+                    return False, f"argument '{key}' was {got!r}, expected {want!r}"
+            elif want != got:
+                return False, f"argument '{key}' was {got!r}, expected {want!r}"
+
+        for key, want in (contains or {}).items():
+            if key not in actual:
+                return False, f"missing argument '{key}'"
+            if str(want).lower() not in str(actual[key]).lower():
+                return False, f"argument '{key}' ({actual[key]!r}) does not contain {want!r}"
+
+        return True, ""
+
+    def measure(self, test_case: LLMTestCase):
+        if self.expect_no_call:
+            if self.tool_calls:
+                self.score = 0.0
+                self.failure_mode = "unwanted_call"
+                self.reason = f"Expected no tool call; model called {[c.get('name') for c in self.tool_calls]}."
+            else:
+                self.score = 1.0
+                self.failure_mode = "ok"
+                self.reason = "No tool call emitted, as expected."
+            self.success = self.score >= self.threshold
+            return self.score
+
+        if not self.expected_calls:
+            self.score = 0.0
+            self.failure_mode = "no_expectation"
+            self.reason = "No expected_tool_calls defined for this case."
+            self.success = False
+            return self.score
+
+        if not self.tool_calls:
+            if self._looks_like_unparsed_call():
+                self.failure_mode = "unparsed_call"
+                self.reason = (
+                    "Model emitted a tool call in its content but the server did not parse it into "
+                    "tool_calls (chat template / parser mismatch). An agent sees no tool call. "
+                    f"Content began: {self.raw_content[:160]!r}"
+                )
+            else:
+                self.failure_mode = "no_call"
+                self.reason = f"No tool call emitted. Content began: {self.raw_content[:160]!r}"
+            self.score = 0.0
+            self.success = False
+            return self.score
+
+        called = {c.get("name"): c.get("arguments", {}) for c in self.tool_calls}
+        per_call: list[float] = []
+        reasons: list[str] = []
+        modes: set[str] = set()
+
+        for expected in self.expected_calls:
+            name = expected.get("name")
+            if name not in called:
+                per_call.append(0.0)
+                modes.add("wrong_tool")
+                reasons.append(f"expected '{name}', got {sorted(called) or 'nothing'}")
+                continue
+
+            ok, why = self._args_match(expected.get("arguments"), expected.get("arguments_contains"), called[name])
+            if ok:
+                per_call.append(1.0)
+                reasons.append(f"'{name}' called correctly")
+            else:
+                per_call.append(0.5)
+                modes.add("bad_arguments")
+                reasons.append(f"'{name}' called but {why}")
+
+        self.score = sum(per_call) / len(per_call)
+        self.success = self.score >= self.threshold
+        self.failure_mode = "ok" if self.success else ("wrong_tool" if "wrong_tool" in modes else "bad_arguments")
+
+        extra = [n for n in called if n not in {e.get("name") for e in self.expected_calls}]
+        if extra:
+            reasons.append(f"also called unexpected {extra}")
+        self.reason = "; ".join(reasons)
+        return self.score
+
+    async def a_measure(self, test_case: LLMTestCase):
+        return self.measure(test_case)
+
+    def is_successful(self):
+        return self.success
+
+    @property
+    def __name__(self):
+        return "Tool Call Accuracy"
+
+
+def _chat(model_name: str, system_prompt: str, input_prompt: str, num_ctx: int = 4096, tools: list | None = None):
+    """One chat completion via litellm routing or a direct ollama hit.
+
+    Returns (output, latency, usage, tool_calls). `tool_calls` is a list of
+    {"name": str, "arguments": dict} normalized across both transports, or [] if the
+    model emitted none. Passing `tools` sends the schemas to the model; note that a
+    model can emit a tool call as plain text without it being parsed into this list —
+    that distinction is what ToolCallMetric scores.
+    """
     start_time = time.time()
     proxy_model, api_base, is_direct = resolve_endpoint(model_name)
 
@@ -163,17 +322,24 @@ def agent_task(model_name: str, system_prompt: str, input_prompt: str, num_ctx: 
                 "num_ctx": num_ctx
             }
         }
+        if tools:
+            payload["tools"] = tools
         res = requests.post(api_base, json=payload, timeout=1200)
         res.raise_for_status()
         data = res.json()
         latency = time.time() - start_time
-        output = data.get("message", {}).get("content", "")
+        message = data.get("message", {})
+        output = message.get("content", "")
+        raw_tool_calls = message.get("tool_calls") or []
         usage = {
             "prompt_tokens": data.get("prompt_eval_count", 0),
             "completion_tokens": data.get("eval_count", 0),
             "total_tokens": data.get("prompt_eval_count", 0) + data.get("eval_count", 0)
         }
     else:
+        kwargs = {}
+        if tools:
+            kwargs["tools"] = tools
         response = litellm.completion(
             model=proxy_model,
             messages=[
@@ -183,15 +349,96 @@ def agent_task(model_name: str, system_prompt: str, input_prompt: str, num_ctx: 
             api_base=api_base,
             api_key="sk-dummy",
             num_ctx=num_ctx,
-            timeout=1200
+            timeout=1200,
+            **kwargs,
         )
         latency = time.time() - start_time
-        output = response.choices[0].message.content or ""
+        message = response.choices[0].message
+        output = message.content or ""
+        raw_tool_calls = getattr(message, "tool_calls", None) or []
         usage = response.usage.model_dump() if response.usage else {}
 
     # Strip <think> tags from reasoning model output before scoring
     output = re.sub(r'<think>.*?</think>', '', output, flags=re.DOTALL).strip()
+    return output, latency, usage, _normalize_tool_calls(raw_tool_calls)
+
+
+def _normalize_tool_calls(raw_tool_calls: list) -> list[dict]:
+    """Flatten Ollama-native and OpenAI-compat tool call shapes into {"name", "arguments"}.
+
+    Native /api/chat returns arguments as a dict; the OpenAI-compat /v1 path returns them
+    as a JSON string. Both are normalized to a dict so scoring does not care which
+    transport produced them.
+    """
+    normalized = []
+    for call in raw_tool_calls:
+        if isinstance(call, dict):
+            fn = call.get("function", {})
+        else:  # litellm/openai object
+            fn = getattr(call, "function", None)
+            fn = {"name": getattr(fn, "name", None), "arguments": getattr(fn, "arguments", None)} if fn else {}
+
+        args = fn.get("arguments")
+        if isinstance(args, str):
+            try:
+                args = json.loads(args)
+            except (json.JSONDecodeError, TypeError):
+                args = {"_unparsed": args}
+        normalized.append({"name": fn.get("name"), "arguments": args or {}})
+    return normalized
+
+
+def agent_task(model_name: str, system_prompt: str, input_prompt: str, num_ctx: int = 4096):
+    """Executes the agent task using litellm routing or direct ollama hit."""
+    output, latency, usage, _ = _chat(model_name, system_prompt, input_prompt, num_ctx)
     return output, latency, usage
+
+
+def _load_tools(exp: dict) -> list:
+    """Resolve an experiment's `tools:` field into a list of OpenAI-format tool schemas.
+
+    Accepts either the schemas inline, or a path to a .json/.yaml file holding them (a bare
+    list, or an object with a top-level `tools` key).
+    """
+    tools = exp.get("tools")
+    if not tools:
+        raise ValueError("workflow 'tool_calling' requires a 'tools' field (inline schemas or a file path)")
+
+    if isinstance(tools, str):
+        with open(tools, "r") as f:
+            loaded = json.load(f) if tools.lower().endswith(".json") else yaml.safe_load(f)
+        tools = loaded.get("tools") if isinstance(loaded, dict) else loaded
+
+    if not isinstance(tools, list):
+        raise ValueError("'tools' must resolve to a list of tool schemas")
+    return tools
+
+
+def tool_calling_task(
+    model_name: str,
+    system_prompt: str,
+    input_prompt: str,
+    tools: list,
+    num_ctx: int = 4096,
+):
+    """Single-turn tool-calling task: offer the model real tool schemas and see what it emits.
+
+    Returns (rendered_output, latency, usage, tool_calls). The rendered output keeps the
+    model's prose plus a readable dump of any parsed calls so GEval can still score it if
+    the experiment supplies `expected_output_criteria`.
+    """
+    output, latency, usage, tool_calls = _chat(model_name, system_prompt, input_prompt, num_ctx, tools=tools)
+
+    if tool_calls:
+        rendered = "Tool calls:\n" + "\n".join(
+            f"- {c['name']}({json.dumps(c['arguments'], sort_keys=True)})" for c in tool_calls
+        )
+        if output:
+            rendered += f"\n\nContent:\n{output}"
+    else:
+        rendered = output
+
+    return rendered, latency, usage, tool_calls
 
 def multi_agent_triage_task(
     orchestrator_model: str,
@@ -360,14 +607,36 @@ def _dry_run_print(exp: dict, experiment_name: str, workflow: str, judge_model: 
     print(f"[DRY-RUN] Combos ({len(combinations)}):")
     for c in combinations:
         print(f"  - {_make_combo_id(c)}: {c}")
+    if workflow == "tool_calling":
+        try:
+            tools = _load_tools(exp)
+            print(f"[DRY-RUN] Tools ({len(tools)}): {[t.get('function', {}).get('name') for t in tools]}")
+        except (ValueError, OSError, yaml.YAMLError, json.JSONDecodeError) as e:
+            print(f"[DRY-RUN] Tools: INVALID — {e}")
+
     test_cases = exp.get("test_cases", [])
     print(f"[DRY-RUN] Test cases ({len(test_cases)}):")
+    judged = 0
     for tc in test_cases:
-        path = tc.get("input_file", "N/A")
-        status = "OK" if os.path.exists(path) else "MISSING"
-        print(f"  [{status}] {tc['name']}: {path}")
+        path = tc.get("input_file")
+        if path:
+            status = "OK" if os.path.exists(path) else "MISSING"
+        else:
+            status = "NO INPUT FILE"
+            path = "(prompt only)"
+        expects = []
+        if tc.get("expect_no_tool_call"):
+            expects.append("no tool call")
+        elif tc.get("expected_tool_calls"):
+            expects.append(f"{len(tc['expected_tool_calls'])} tool call(s)")
+        if tc.get("expected_output_criteria"):
+            expects.append("GEval criteria")
+            judged += 1
+        print(f"  [{status}] {tc['name']}: {path}" + (f" -> {', '.join(expects)}" if expects else ""))
+
     total_agent = len(combinations) * len(test_cases)
-    print(f"[DRY-RUN] Estimated LLM calls: {total_agent} agent + {total_agent} judge = {total_agent * 2} total")
+    total_judge = len(combinations) * judged
+    print(f"[DRY-RUN] Estimated LLM calls: {total_agent} agent + {total_judge} judge = {total_agent + total_judge} total")
 
 
 # ---------------------------------------------------------------------------
@@ -395,7 +664,10 @@ async def _eval_combo(
             continue
 
         try:
-            if case["input_file"].lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
+            if not case.get("input_file"):
+                # Tool-calling and other prompt-only cases need no input file.
+                input_prompt = case.get("task_prompt", "")
+            elif case["input_file"].lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
                 with open(case["input_file"], "rb") as f:
                     base64_image = base64.b64encode(f.read()).decode("utf-8")
                 input_prompt = [
@@ -411,6 +683,7 @@ async def _eval_combo(
             continue
 
         expected_output = case.get("expected_output_criteria", "")
+        tool_calls: list[dict] = []
         print(f"   Running case: {case['name']}...")
 
         if workflow == "multi_agent_blog_gen":
@@ -451,6 +724,13 @@ async def _eval_combo(
                 mock_promql_file, mock_logql_file,
             )
 
+        elif workflow == "tool_calling":
+            num_ctx = exp.get("num_ctx", 4096)
+            actual_output, latency, usage, tool_calls = await asyncio.to_thread(
+                tool_calling_task, model_name, exp["system_prompt"], input_prompt,
+                _load_tools(exp), num_ctx,
+            )
+
         else:
             num_ctx = exp.get("num_ctx", 4096)
             actual_output, latency, usage = await asyncio.to_thread(
@@ -473,13 +753,33 @@ async def _eval_combo(
             exec_score = None
             exec_reason = "Skipped (pass --allow-code-execution to enable)"
 
-        geval = GEval(
-            name="Code Requirements Checklist",
-            criteria=expected_output,
-            evaluation_params=[SingleTurnParams.INPUT, SingleTurnParams.ACTUAL_OUTPUT],
-            model=CustomLiteLLM(judge_model),
-        )
-        geval_score = await geval.a_measure(test_case)
+        if case.get("expected_tool_calls") or case.get("expect_no_tool_call"):
+            tool_metric = ToolCallMetric(
+                case.get("expected_tool_calls", []), tool_calls, raw_content=actual_output,
+                expect_no_call=bool(case.get("expect_no_tool_call")),
+            )
+            tool_score = await asyncio.to_thread(tool_metric.measure, test_case)
+            tool_reason = tool_metric.reason or ""
+            tool_failure_mode = tool_metric.failure_mode
+        else:
+            tool_score = None
+            tool_reason = "Skipped (no expected_tool_calls)"
+            tool_failure_mode = None
+
+        # A tool-calling case need not define text criteria; asking a judge to grade against an
+        # empty rubric produces a meaningless score.
+        if expected_output:
+            geval = GEval(
+                name="Code Requirements Checklist",
+                criteria=expected_output,
+                evaluation_params=[SingleTurnParams.INPUT, SingleTurnParams.ACTUAL_OUTPUT],
+                model=CustomLiteLLM(judge_model),
+            )
+            geval_score = await geval.a_measure(test_case)
+            geval_reason = getattr(geval, "reason", "")
+        else:
+            geval_score = None
+            geval_reason = "Skipped (no expected_output_criteria)"
 
         run = {
             "pipeline": combo,
@@ -487,19 +787,26 @@ async def _eval_combo(
             "latency_sec": round(latency, 3),
             "tokens": usage,
             "actual_output": actual_output,
+            "tool_calls": tool_calls,
             "scores": {
                 "ExecutionMetric": exec_score,
                 "ExecutionReason": exec_reason,
                 "GEval": geval_score,
-                "GEvalReason": getattr(geval, "reason", ""),
+                "GEvalReason": geval_reason,
+                "ToolCallMetric": tool_score,
+                "ToolCallReason": tool_reason,
+                "ToolCallFailureMode": tool_failure_mode,
             },
         }
         runs.append(run)
-        print(f"   [DONE] Latency: {latency:.2f}s | GEval: {geval_score} | Exec: {exec_score if exec_score is not None else 'skipped'}")
+        summary = f"   [DONE] Latency: {latency:.2f}s | GEval: {geval_score} | Exec: {exec_score if exec_score is not None else 'skipped'}"
+        if tool_score is not None:
+            summary += f" | ToolCall: {tool_score:.2f} ({tool_failure_mode})"
+        print(summary)
 
         push_metrics_to_prometheus(
             experiment_name, combo_id, case["name"],
-            {"ExecutionMetric": exec_score, "GEval": geval_score},
+            {"ExecutionMetric": exec_score, "GEval": geval_score, "ToolCallMetric": tool_score},
             latency,
         )
 
@@ -624,11 +931,19 @@ def compare(
     print(f"  B: {data_b['experiment_name']} ({result_b})")
     print()
 
+    # Only show the tool-call columns when at least one side actually scored tool calls.
+    def has_tool_scores(data: dict) -> bool:
+        return any(run.get("scores", {}).get("ToolCallMetric") is not None for run in data.get("runs", []))
+
+    show_tools = has_tool_scores(data_a) or has_tool_scores(data_b)
+    metric_key = "ToolCallMetric" if show_tools else "GEval"
+    metric_label = "Tool" if show_tools else "GEval"
+
     col_combo = 38
     col_case = 28
     header = (
         f"{'Combo':<{col_combo}}  {'Case':<{col_case}}"
-        f"  {'GEval A':>7}  {'GEval B':>7}  {'Δ GEval':>7}"
+        f"  {metric_label + ' A':>7}  {metric_label + ' B':>7}  {'Δ':>7}"
         f"  {'Lat A':>7}  {'Lat B':>7}  {'Δ Lat':>7}"
     )
     print(header)
@@ -638,8 +953,8 @@ def compare(
         run_a = idx_a.get((combo_id, case_name))
         run_b = idx_b.get((combo_id, case_name))
 
-        geval_a = run_a["scores"]["GEval"] if run_a else None
-        geval_b = run_b["scores"]["GEval"] if run_b else None
+        geval_a = run_a["scores"].get(metric_key) if run_a else None
+        geval_b = run_b["scores"].get(metric_key) if run_b else None
         lat_a = run_a["latency_sec"] if run_a else None
         lat_b = run_b["latency_sec"] if run_b else None
 
