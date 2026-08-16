@@ -989,10 +989,30 @@ async def _eval_combo(
         for i in range(repeats):
             if repeats > 1:
                 print(f"      Sample {i + 1}/{repeats}...")
-            sample = await _run_and_score_sample(
-                combo, combo_id, exp, judge_model, workflow, case, input_prompt, expected_output,
-                allow_code_execution, sample_suffix=f"_s{i + 1}" if repeats > 1 else "",
-            )
+            try:
+                sample = await _run_and_score_sample(
+                    combo, combo_id, exp, judge_model, workflow, case, input_prompt, expected_output,
+                    allow_code_execution, sample_suffix=f"_s{i + 1}" if repeats > 1 else "",
+                )
+            except Exception as e:
+                # One candidate's incompatibility (a model that rejects a tools payload, a judge
+                # that returns malformed JSON on an off sample) must not cost every model queued
+                # after it in models_to_test — record the failure and keep going. A bake-off run
+                # is only useful if one bad candidate can't silently truncate the rest of it.
+                err = f"{type(e).__name__}: {e}"
+                print(f"   [!] Sample failed: {err}")
+                sample = {
+                    "latency_sec": 0.0,
+                    "tokens": {},
+                    "actual_output": "",
+                    "tool_calls": [],
+                    "scores": {
+                        "ExecutionMetric": None, "ExecutionReason": f"ERROR: {err}",
+                        "GEval": None, "GEvalReason": f"ERROR: {err}",
+                        "ToolCallMetric": None, "ToolCallReason": f"ERROR: {err}", "ToolCallFailureMode": "error",
+                        "EmbeddingRetrievalMetric": None, "EmbeddingRetrievalReason": f"ERROR: {err}",
+                    },
+                }
             samples.append(sample)
 
         if repeats == 1:
