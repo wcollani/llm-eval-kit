@@ -10,7 +10,11 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     # deepeval and litellm ship breaking API changes frequently; pin tightly.
-    "deepeval>=2.0.0,<3.0.0",
+    # deepeval<4.0 doesn't define SingleTurnParams (used by every GEval call in cli.py) and
+    # resolves a langchain generation whose own azure_model.py imports langchain.schema.HumanMessage
+    # — a module langchain itself removed. 2.x/3.x are both broken for this reason, not just old.
+    "deepeval>=4.1.8,<5.0.0",
+    "click<8.4.0",  # deepeval caps click; newer click from typer's own resolve conflicts otherwise
     "litellm[proxy]>=1.50.0,<2.0.0",
     "typer>=0.9.0",
     "opentelemetry-api>=1.20.0",
