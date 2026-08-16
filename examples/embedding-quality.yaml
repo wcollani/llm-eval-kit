@@ -1,0 +1,36 @@
+experiment_name: "Embedding Retrieval Quality"
+workflow: "embedding_quality"
+
+# Embedding model tags, not chat models — routed through the same prefixes as everything else.
+models_to_test:
+  - "sre/bge-large:335m-en-v1.5-fp16"
+  - "sre/nomic-embed-text"
+  - "ws/nomic-embed-text"
+
+# Each case: does the query's embedding land closest to `correct`, or does it get confused for
+# one of the `distractors`? Built from real homelab-mcp tool descriptions so the test reflects
+# an actual retrieval task (e.g. picking the right tool description for a vector-search agent)
+# rather than a generic synthetic benchmark.
+test_cases:
+  - name: "CPU usage query"
+    query: "How do I check container CPU usage right now?"
+    correct: "query_promql: Execute a PromQL query against Prometheus to retrieve metrics."
+    distractors:
+      - "query_logql: Execute a LogQL query against Loki to retrieve logs."
+      - "send_notification: Send a push notification to the homelab operator via ntfy."
+      - "get_unifi_clients: List clients currently connected to the UniFi network."
+
+  - name: "Error log search"
+    query: "Find error messages for a specific container over the last hour."
+    correct: "query_logql: Execute a LogQL query against Loki to retrieve logs."
+    distractors:
+      - "query_promql: Execute a PromQL query against Prometheus to retrieve metrics."
+      - "check_series_downloads: Check the Sonarr download queue for TV series."
+
+  - name: "Alert notification"
+    query: "Page the operator that disk space is critically low."
+    correct: "send_notification: Send a push notification to the homelab operator via ntfy."
+    distractors:
+      - "query_promql: Execute a PromQL query against Prometheus to retrieve metrics."
+      - "get_unifi_clients: List clients currently connected to the UniFi network."
+      - "check_series_downloads: Check the Sonarr download queue for TV series."

@@ -93,6 +93,26 @@ explicit instruction ("call get_prometheus_metric for X"). A model that only cal
 told to is unsuitable for an autonomous lane, and the gap between the two phrasings measures that
 directly.
 
+**Reliability under repeats**
+Add `repeats: 3` (or more) to any tool-calling experiment and look at `ToolCallPassRate`, not just
+the mean `ToolCallMetric`. Two models can land on the same mean score while one calls tools
+consistently and the other is a coin flip — the pass rate is what tells them apart, and it's the
+number worth trusting before assigning a model to an unattended lane.
+
+## Embedding Quality
+
+**Retrieval accuracy vs. distractor count**
+Run the same query/correct pair with 1, 3, and 10 distractors via `workflow: embedding_quality`
+and watch where `EmbeddingRetrievalMetric` degrades. A model that ranks the right passage first
+against 3 distractors but not 10 has a real ceiling on how large a tool/document set it can serve
+in a retrieval role.
+
+**Domain-specific vs. general embeddings**
+Compare a general-purpose embedding model against a smaller one on homelab-specific text
+(tool descriptions, PromQL/LogQL examples, runbook snippets) — general capability and domain fit
+aren't the same axis, and a compact model tuned closer to the actual vocabulary in use can
+outscore a larger general one on this specific retrieval task.
+
 ## Multi-Agent Pipeline Quality
 
 **Pipeline depth comparison**

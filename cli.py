@@ -298,6 +298,61 @@ class ToolCallMetric(BaseMetric):
         return "Tool Call Accuracy"
 
 
+class EmbeddingRetrievalMetric(BaseMetric):
+    """Deterministic scoring for `workflow: embedding_quality`: does the correct passage's
+    embedding rank closest to the query's, among a set of distractors?
+
+    No judge model — cosine similarity is exact arithmetic, not something worth asking an LLM to
+    grade. Score is `1 / rank` (1.0 if the correct passage comes out on top, 0.5 if second, 0.33
+    if third...) rather than pass/fail, since "barely lost first place" and "buried under four
+    distractors" are different quality signals worth keeping apart in the results.
+    """
+
+    def __init__(
+        self,
+        query_vector: list[float],
+        candidate_vectors: list[list[float]],
+        correct_index: int = 0,
+        threshold: float = 1.0,
+    ):
+        self.query_vector = query_vector
+        self.candidate_vectors = candidate_vectors
+        self.correct_index = correct_index
+        self.threshold = threshold
+        self.score = 0.0
+        self.reason = None
+        self.success = False
+
+    @staticmethod
+    def _cosine(a: list[float], b: list[float]) -> float:
+        dot = sum(x * y for x, y in zip(a, b))
+        na = sum(x * x for x in a) ** 0.5
+        nb = sum(y * y for y in b) ** 0.5
+        return dot / (na * nb) if na and nb else 0.0
+
+    def measure(self, test_case=None):
+        sims = [self._cosine(self.query_vector, v) for v in self.candidate_vectors]
+        ranked = sorted(range(len(sims)), key=lambda i: sims[i], reverse=True)
+        rank = ranked.index(self.correct_index) + 1  # 1-indexed
+        self.score = round(1.0 / rank, 3)
+        self.success = rank == 1
+        self.reason = (
+            f"Correct passage ranked #{rank} of {len(sims)} "
+            f"(similarity {sims[self.correct_index]:.3f}, top similarity {max(sims):.3f})"
+        )
+        return self.score
+
+    async def a_measure(self, test_case=None):
+        return self.measure(test_case)
+
+    def is_successful(self):
+        return self.success
+
+    @property
+    def __name__(self):
+        return "Embedding Retrieval Rank"
+
+
 def _chat(model_name: str, system_prompt: str, input_prompt: str, num_ctx: int = 4096, tools: list | None = None):
     """One chat completion via litellm routing or a direct ollama hit.
 
@@ -439,6 +494,35 @@ def tool_calling_task(
         rendered = output
 
     return rendered, latency, usage, tool_calls
+
+
+def _embed(model_name: str, texts: list[str]) -> tuple[list[list[float]], float, dict]:
+    """Embed a batch of texts, using the same prefix routing _chat() uses.
+
+    Native path (`direct_ws/`, `direct_sre/`) calls Ollama's batch `/api/embed`. Non-direct path
+    (`ws/`, `sre/`, `ollama/`) calls litellm.embedding() against the same `/v1` base _chat() uses
+    for those prefixes, so `resolve_endpoint()` needs no embedding-specific branch.
+    """
+    start_time = time.time()
+    proxy_model, api_base, is_direct = resolve_endpoint(model_name)
+
+    if is_direct:
+        embed_base = api_base.replace("/api/chat", "/api/embed")
+        res = requests.post(embed_base, json={"model": proxy_model, "input": texts}, timeout=1200)
+        res.raise_for_status()
+        data = res.json()
+        vectors = data.get("embeddings", [])
+        usage = {"prompt_tokens": data.get("prompt_eval_count", 0)}
+    else:
+        response = litellm.embedding(
+            model=proxy_model, input=texts, api_base=api_base, api_key="sk-dummy", timeout=1200,
+        )
+        vectors = [d["embedding"] for d in response.data]
+        usage = response.usage.model_dump() if response.usage else {}
+
+    latency = time.time() - start_time
+    return vectors, latency, usage
+
 
 def multi_agent_triage_task(
     orchestrator_model: str,
@@ -618,6 +702,12 @@ def _dry_run_print(exp: dict, experiment_name: str, workflow: str, judge_model: 
     print(f"[DRY-RUN] Test cases ({len(test_cases)}):")
     judged = 0
     for tc in test_cases:
+        if workflow == "embedding_quality":
+            missing = [f for f in ("query", "correct") if f not in tc]
+            status = "OK" if not missing else f"MISSING {missing}"
+            n_distractors = len(tc.get("distractors", []))
+            print(f"  [{status}] {tc['name']}: query vs. 1 correct + {n_distractors} distractor(s)")
+            continue
         path = tc.get("input_file")
         if path:
             status = "OK" if os.path.exists(path) else "MISSING"
@@ -634,14 +724,224 @@ def _dry_run_print(exp: dict, experiment_name: str, workflow: str, judge_model: 
             judged += 1
         print(f"  [{status}] {tc['name']}: {path}" + (f" -> {', '.join(expects)}" if expects else ""))
 
-    total_agent = len(combinations) * len(test_cases)
-    total_judge = len(combinations) * judged
-    print(f"[DRY-RUN] Estimated LLM calls: {total_agent} agent + {total_judge} judge = {total_agent + total_judge} total")
+    repeats = max(1, int(exp.get("repeats", 1)))
+    total_agent = len(combinations) * len(test_cases) * repeats
+    total_judge = len(combinations) * judged * repeats
+    repeats_note = f" (repeats={repeats})" if repeats > 1 else ""
+    print(f"[DRY-RUN] Estimated LLM calls{repeats_note}: {total_agent} agent + {total_judge} judge = {total_agent + total_judge} total")
 
 
 # ---------------------------------------------------------------------------
 # Core evaluation coroutine (one combo / pipeline)
 # ---------------------------------------------------------------------------
+
+async def _run_and_score_sample(
+    combo: dict,
+    combo_id: str,
+    exp: dict,
+    judge_model: str,
+    workflow: str,
+    case: dict,
+    input_prompt,
+    expected_output: str,
+    allow_code_execution: bool,
+    sample_suffix: str = "",
+) -> dict:
+    """Call the model once for this case and score the result. One "sample" — `repeats: N`
+    in the YAML calls this N times per case and `_aggregate_samples` combines them.
+
+    `sample_suffix` (e.g. "_s2") disambiguates multi-agent artifact filenames across repeats;
+    it's empty for a single-sample run so filenames are unchanged from before `repeats` existed.
+    """
+    model_name = combo.get("model", combo.get("orchestrator", combo.get("generator", "pipeline")))
+    tool_calls: list[dict] = []
+
+    if workflow == "embedding_quality":
+        # Shaped entirely differently from the chat workflows below — a query ranked against
+        # candidate passages, not a single input/output pair — so it returns early rather than
+        # flowing into the shared ExecutionMetric/ToolCallMetric/GEval scoring tail, none of
+        # which apply to an embedding model.
+        candidates = [case["correct"]] + list(case.get("distractors", []))
+        vectors, latency, usage = await asyncio.to_thread(_embed, model_name, [case["query"]] + candidates)
+        metric = EmbeddingRetrievalMetric(vectors[0], vectors[1:], correct_index=0)
+        score = metric.measure()
+        return {
+            "latency_sec": round(latency, 3),
+            "tokens": usage,
+            "actual_output": metric.reason,
+            "tool_calls": [],
+            "scores": {
+                "ExecutionMetric": None, "ExecutionReason": "N/A (embedding_quality workflow)",
+                "GEval": None, "GEvalReason": "N/A (embedding_quality workflow)",
+                "ToolCallMetric": None, "ToolCallReason": "N/A (embedding_quality workflow)",
+                "ToolCallFailureMode": None,
+                "EmbeddingRetrievalMetric": score,
+                "EmbeddingRetrievalReason": metric.reason,
+            },
+        }
+
+    if workflow == "multi_agent_blog_gen":
+        actual_output, latency, usage, draft, critique = await asyncio.to_thread(
+            multi_agent_blog_task,
+            combo["generator"], combo["critic"], combo["refiner"],
+            exp["system_prompt"], input_prompt,
+        )
+        artifact_dir = "results/artifacts"
+        os.makedirs(artifact_dir, exist_ok=True)
+        safe_case = case["name"].replace(" ", "_").replace("/", "-")
+        artifact_path = os.path.join(artifact_dir, f"Blog_{combo_id}_{safe_case}{sample_suffix}.md")
+        with open(artifact_path, "w") as af:
+            af.write(f"# Pipeline: {combo_id}\n\n## Final V2 Blog Post\n\n{actual_output}\n\n---\n## Critic Feedback on V1\n\n{critique}")
+        print(f"   [+] Saved artifact to {artifact_path}")
+
+    elif workflow == "mob_of_experts":
+        actual_output, latency, usage, draft_a, draft_b, orch_out = await asyncio.to_thread(
+            mob_of_experts_task,
+            combo["orchestrator"], combo["generator"], combo["critic"], combo["refiner"],
+            exp["system_prompt"], input_prompt,
+        )
+        artifact_dir = "results/artifacts"
+        os.makedirs(artifact_dir, exist_ok=True)
+        safe_case = case["name"].replace(" ", "_").replace("/", "-")
+        artifact_path = os.path.join(artifact_dir, f"Mob_{combo_id}_{safe_case}{sample_suffix}.md")
+        with open(artifact_path, "w") as af:
+            af.write(f"# Pipeline: {combo_id}\n\n## Final Synthesis\n\n{actual_output}\n\n---\n## Orchestrator Prompts\n\n{orch_out}\n\n---\n## Expert A Draft\n\n{draft_a}\n\n---\n## Expert B Draft\n\n{draft_b}")
+        print(f"   [+] Saved artifact to {artifact_path}")
+
+    elif workflow == "multi_agent_triage":
+        subagent_model = exp.get("subagent_model", "ollama/qwen2.5-coder:7b")
+        mock_promql_file = exp.get("mock_promql_file", "examples/inputs/mock_promql_result.json")
+        mock_logql_file = exp.get("mock_logql_file", "examples/inputs/mock_logql_result.json")
+        actual_output, latency, usage = await asyncio.to_thread(
+            multi_agent_triage_task,
+            model_name, subagent_model, exp["system_prompt"], input_prompt,
+            mock_promql_file, mock_logql_file,
+        )
+
+    elif workflow == "tool_calling":
+        num_ctx = exp.get("num_ctx", 4096)
+        actual_output, latency, usage, tool_calls = await asyncio.to_thread(
+            tool_calling_task, model_name, exp["system_prompt"], input_prompt,
+            _load_tools(exp), num_ctx,
+        )
+
+    else:
+        num_ctx = exp.get("num_ctx", 4096)
+        actual_output, latency, usage = await asyncio.to_thread(
+            agent_task, model_name, exp["system_prompt"], input_prompt, num_ctx
+        )
+
+    test_case_input = input_prompt if isinstance(input_prompt, str) else case.get("task_prompt", "")
+    test_case = LLMTestCase(
+        input=test_case_input,
+        actual_output=actual_output,
+        expected_output=expected_output,
+    )
+
+    if allow_code_execution:
+        exec_metric = ExecutionMetric()
+        exec_score = await asyncio.to_thread(exec_metric.measure, test_case)
+        exec_reason = exec_metric.reason or ""
+    else:
+        exec_score = None
+        exec_reason = "Skipped (pass --allow-code-execution to enable)"
+
+    if case.get("expected_tool_calls") or case.get("expect_no_tool_call"):
+        tool_metric = ToolCallMetric(
+            case.get("expected_tool_calls", []), tool_calls, raw_content=actual_output,
+            expect_no_call=bool(case.get("expect_no_tool_call")),
+        )
+        tool_score = await asyncio.to_thread(tool_metric.measure, test_case)
+        tool_reason = tool_metric.reason or ""
+        tool_failure_mode = tool_metric.failure_mode
+    else:
+        tool_score = None
+        tool_reason = "Skipped (no expected_tool_calls)"
+        tool_failure_mode = None
+
+    # A tool-calling case need not define text criteria; asking a judge to grade against an
+    # empty rubric produces a meaningless score.
+    if expected_output:
+        geval = GEval(
+            name="Code Requirements Checklist",
+            criteria=expected_output,
+            evaluation_params=[SingleTurnParams.INPUT, SingleTurnParams.ACTUAL_OUTPUT],
+            model=CustomLiteLLM(judge_model),
+        )
+        geval_score = await geval.a_measure(test_case)
+        geval_reason = getattr(geval, "reason", "")
+    else:
+        geval_score = None
+        geval_reason = "Skipped (no expected_output_criteria)"
+
+    return {
+        "latency_sec": round(latency, 3),
+        "tokens": usage,
+        "actual_output": actual_output,
+        "tool_calls": tool_calls,
+        "scores": {
+            "ExecutionMetric": exec_score,
+            "ExecutionReason": exec_reason,
+            "GEval": geval_score,
+            "GEvalReason": geval_reason,
+            "ToolCallMetric": tool_score,
+            "ToolCallReason": tool_reason,
+            "ToolCallFailureMode": tool_failure_mode,
+        },
+    }
+
+
+def _aggregate_samples(combo: dict, case_name: str, samples: list[dict]) -> dict:
+    """Combine repeated samples of one case into a single run record.
+
+    Numeric scores are averaged. `ToolCallMetric` additionally gets `ToolCallPassRate` — the
+    fraction of samples that hit the metric's own success threshold — because a mean score alone
+    can't distinguish "always half-right" from "right half the time, wrong half the time"; the
+    two need different fixes and the pass rate is what tells them apart.
+    """
+    def mean(vals):
+        vals = [v for v in vals if v is not None]
+        return round(sum(vals) / len(vals), 3) if vals else None
+
+    scores: dict = {}
+    for key in ("ExecutionMetric", "GEval", "ToolCallMetric", "EmbeddingRetrievalMetric"):
+        scores[key] = mean([s["scores"].get(key) for s in samples])
+
+    for score_key, reason_key in (
+        ("ExecutionMetric", "ExecutionReason"),
+        ("GEval", "GEvalReason"),
+        ("ToolCallMetric", "ToolCallReason"),
+        ("EmbeddingRetrievalMetric", "EmbeddingRetrievalReason"),
+    ):
+        reasons = [s["scores"].get(reason_key) for s in samples if s["scores"].get(reason_key)]
+        scores[reason_key] = " | ".join(f"[{i + 1}] {r}" for i, r in enumerate(reasons)) if reasons else ""
+
+    failure_modes = [s["scores"]["ToolCallFailureMode"] for s in samples if s["scores"].get("ToolCallFailureMode")]
+    if failure_modes:
+        distinct = set(failure_modes)
+        scores["ToolCallFailureMode"] = failure_modes[0] if len(distinct) == 1 else f"mixed({','.join(sorted(distinct))})"
+        scores["ToolCallPassRate"] = round(sum(1 for m in failure_modes if m == "ok") / len(samples), 3)
+    else:
+        scores["ToolCallFailureMode"] = None
+        scores["ToolCallPassRate"] = None
+
+    tokens_total = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+    for s in samples:
+        for k in tokens_total:
+            tokens_total[k] += (s.get("tokens") or {}).get(k, 0)
+
+    return {
+        "pipeline": combo,
+        "case_name": case_name,
+        "repeats": len(samples),
+        "latency_sec": round(sum(s["latency_sec"] for s in samples) / len(samples), 3),
+        "tokens": tokens_total,
+        "actual_output": samples[-1]["actual_output"],
+        "tool_calls": samples[-1]["tool_calls"],
+        "samples": samples,
+        "scores": scores,
+    }
+
 
 async def _eval_combo(
     combo: dict,
@@ -653,10 +953,10 @@ async def _eval_combo(
 ) -> list[dict]:
     """Run every test case for a single combo. Returns a list of run result dicts."""
     runs: list[dict] = []
-    model_name = combo.get("model", combo.get("orchestrator", combo.get("generator", "pipeline")))
     combo_id = _make_combo_id(combo)
     experiment_name = exp.get("name", exp.get("experiment_name", "Unnamed Experiment"))
-    print(f"\n>> Evaluating Pipeline/Model: {combo_id}")
+    repeats = max(1, int(exp.get("repeats", 1)))
+    print(f"\n>> Evaluating Pipeline/Model: {combo_id}" + (f" (repeats={repeats})" if repeats > 1 else ""))
 
     for case in exp.get("test_cases", []):
         if (combo_id, case["name"]) in completed_keys:
@@ -683,131 +983,55 @@ async def _eval_combo(
             continue
 
         expected_output = case.get("expected_output_criteria", "")
-        tool_calls: list[dict] = []
         print(f"   Running case: {case['name']}...")
 
-        if workflow == "multi_agent_blog_gen":
-            actual_output, latency, usage, draft, critique = await asyncio.to_thread(
-                multi_agent_blog_task,
-                combo["generator"], combo["critic"], combo["refiner"],
-                exp["system_prompt"], input_prompt,
+        samples = []
+        for i in range(repeats):
+            if repeats > 1:
+                print(f"      Sample {i + 1}/{repeats}...")
+            sample = await _run_and_score_sample(
+                combo, combo_id, exp, judge_model, workflow, case, input_prompt, expected_output,
+                allow_code_execution, sample_suffix=f"_s{i + 1}" if repeats > 1 else "",
             )
-            artifact_dir = "results/artifacts"
-            os.makedirs(artifact_dir, exist_ok=True)
-            safe_case = case["name"].replace(" ", "_").replace("/", "-")
-            artifact_path = os.path.join(artifact_dir, f"Blog_{combo_id}_{safe_case}.md")
-            with open(artifact_path, "w") as af:
-                af.write(f"# Pipeline: {combo_id}\n\n## Final V2 Blog Post\n\n{actual_output}\n\n---\n## Critic Feedback on V1\n\n{critique}")
-            print(f"   [+] Saved artifact to {artifact_path}")
+            samples.append(sample)
 
-        elif workflow == "mob_of_experts":
-            actual_output, latency, usage, draft_a, draft_b, orch_out = await asyncio.to_thread(
-                mob_of_experts_task,
-                combo["orchestrator"], combo["generator"], combo["critic"], combo["refiner"],
-                exp["system_prompt"], input_prompt,
-            )
-            artifact_dir = "results/artifacts"
-            os.makedirs(artifact_dir, exist_ok=True)
-            safe_case = case["name"].replace(" ", "_").replace("/", "-")
-            artifact_path = os.path.join(artifact_dir, f"Mob_{combo_id}_{safe_case}.md")
-            with open(artifact_path, "w") as af:
-                af.write(f"# Pipeline: {combo_id}\n\n## Final Synthesis\n\n{actual_output}\n\n---\n## Orchestrator Prompts\n\n{orch_out}\n\n---\n## Expert A Draft\n\n{draft_a}\n\n---\n## Expert B Draft\n\n{draft_b}")
-            print(f"   [+] Saved artifact to {artifact_path}")
-
-        elif workflow == "multi_agent_triage":
-            subagent_model = exp.get("subagent_model", "ollama/qwen2.5-coder:7b")
-            mock_promql_file = exp.get("mock_promql_file", "examples/inputs/mock_promql_result.json")
-            mock_logql_file = exp.get("mock_logql_file", "examples/inputs/mock_logql_result.json")
-            actual_output, latency, usage = await asyncio.to_thread(
-                multi_agent_triage_task,
-                model_name, subagent_model, exp["system_prompt"], input_prompt,
-                mock_promql_file, mock_logql_file,
-            )
-
-        elif workflow == "tool_calling":
-            num_ctx = exp.get("num_ctx", 4096)
-            actual_output, latency, usage, tool_calls = await asyncio.to_thread(
-                tool_calling_task, model_name, exp["system_prompt"], input_prompt,
-                _load_tools(exp), num_ctx,
-            )
-
+        if repeats == 1:
+            s = samples[0]
+            run = {
+                "pipeline": combo,
+                "case_name": case["name"],
+                "latency_sec": s["latency_sec"],
+                "tokens": s["tokens"],
+                "actual_output": s["actual_output"],
+                "tool_calls": s["tool_calls"],
+                "scores": s["scores"],
+            }
         else:
-            num_ctx = exp.get("num_ctx", 4096)
-            actual_output, latency, usage = await asyncio.to_thread(
-                agent_task, model_name, exp["system_prompt"], input_prompt, num_ctx
-            )
+            run = _aggregate_samples(combo, case["name"], samples)
 
-        test_case_input = input_prompt if isinstance(input_prompt, str) else case.get("task_prompt", "")
-        test_case = LLMTestCase(
-            input=test_case_input,
-            actual_output=actual_output,
-            expected_output=expected_output,
-        )
-
-        print(f"   Grading Output...")
-        if allow_code_execution:
-            exec_metric = ExecutionMetric()
-            exec_score = await asyncio.to_thread(exec_metric.measure, test_case)
-            exec_reason = exec_metric.reason or ""
-        else:
-            exec_score = None
-            exec_reason = "Skipped (pass --allow-code-execution to enable)"
-
-        if case.get("expected_tool_calls") or case.get("expect_no_tool_call"):
-            tool_metric = ToolCallMetric(
-                case.get("expected_tool_calls", []), tool_calls, raw_content=actual_output,
-                expect_no_call=bool(case.get("expect_no_tool_call")),
-            )
-            tool_score = await asyncio.to_thread(tool_metric.measure, test_case)
-            tool_reason = tool_metric.reason or ""
-            tool_failure_mode = tool_metric.failure_mode
-        else:
-            tool_score = None
-            tool_reason = "Skipped (no expected_tool_calls)"
-            tool_failure_mode = None
-
-        # A tool-calling case need not define text criteria; asking a judge to grade against an
-        # empty rubric produces a meaningless score.
-        if expected_output:
-            geval = GEval(
-                name="Code Requirements Checklist",
-                criteria=expected_output,
-                evaluation_params=[SingleTurnParams.INPUT, SingleTurnParams.ACTUAL_OUTPUT],
-                model=CustomLiteLLM(judge_model),
-            )
-            geval_score = await geval.a_measure(test_case)
-            geval_reason = getattr(geval, "reason", "")
-        else:
-            geval_score = None
-            geval_reason = "Skipped (no expected_output_criteria)"
-
-        run = {
-            "pipeline": combo,
-            "case_name": case["name"],
-            "latency_sec": round(latency, 3),
-            "tokens": usage,
-            "actual_output": actual_output,
-            "tool_calls": tool_calls,
-            "scores": {
-                "ExecutionMetric": exec_score,
-                "ExecutionReason": exec_reason,
-                "GEval": geval_score,
-                "GEvalReason": geval_reason,
-                "ToolCallMetric": tool_score,
-                "ToolCallReason": tool_reason,
-                "ToolCallFailureMode": tool_failure_mode,
-            },
-        }
         runs.append(run)
-        summary = f"   [DONE] Latency: {latency:.2f}s | GEval: {geval_score} | Exec: {exec_score if exec_score is not None else 'skipped'}"
-        if tool_score is not None:
-            summary += f" | ToolCall: {tool_score:.2f} ({tool_failure_mode})"
+        scores = run["scores"]
+        summary = (
+            f"   [DONE] Latency: {run['latency_sec']:.2f}s | GEval: {scores['GEval']} | "
+            f"Exec: {scores['ExecutionMetric'] if scores['ExecutionMetric'] is not None else 'skipped'}"
+        )
+        if scores["ToolCallMetric"] is not None:
+            summary += f" | ToolCall: {scores['ToolCallMetric']:.2f} ({scores['ToolCallFailureMode']})"
+            if repeats > 1:
+                summary += f" | PassRate: {scores['ToolCallPassRate']:.2f}"
+        if scores.get("EmbeddingRetrievalMetric") is not None:
+            summary += f" | EmbeddingRetrieval: {scores['EmbeddingRetrievalMetric']:.2f}"
         print(summary)
 
         push_metrics_to_prometheus(
             experiment_name, combo_id, case["name"],
-            {"ExecutionMetric": exec_score, "GEval": geval_score, "ToolCallMetric": tool_score},
-            latency,
+            {
+                "ExecutionMetric": scores["ExecutionMetric"],
+                "GEval": scores["GEval"],
+                "ToolCallMetric": scores["ToolCallMetric"],
+                "EmbeddingRetrievalMetric": scores.get("EmbeddingRetrievalMetric"),
+            },
+            run["latency_sec"],
         )
 
     return runs
@@ -931,13 +1155,17 @@ def compare(
     print(f"  B: {data_b['experiment_name']} ({result_b})")
     print()
 
-    # Only show the tool-call columns when at least one side actually scored tool calls.
-    def has_tool_scores(data: dict) -> bool:
-        return any(run.get("scores", {}).get("ToolCallMetric") is not None for run in data.get("runs", []))
+    # Pick whichever metric these results actually scored — ToolCallMetric and
+    # EmbeddingRetrievalMetric are each specific to one workflow; GEval is the fallback.
+    def has_scores(data: dict, key: str) -> bool:
+        return any(run.get("scores", {}).get(key) is not None for run in data.get("runs", []))
 
-    show_tools = has_tool_scores(data_a) or has_tool_scores(data_b)
-    metric_key = "ToolCallMetric" if show_tools else "GEval"
-    metric_label = "Tool" if show_tools else "GEval"
+    if has_scores(data_a, "ToolCallMetric") or has_scores(data_b, "ToolCallMetric"):
+        metric_key, metric_label = "ToolCallMetric", "Tool"
+    elif has_scores(data_a, "EmbeddingRetrievalMetric") or has_scores(data_b, "EmbeddingRetrievalMetric"):
+        metric_key, metric_label = "EmbeddingRetrievalMetric", "Embed"
+    else:
+        metric_key, metric_label = "GEval", "GEval"
 
     col_combo = 38
     col_case = 28

@@ -60,8 +60,13 @@ test_cases:
 | `mob_of_experts` | Orchestrator fans out to two parallel Gen-Crit-Ref pipelines, then synthesizes | `mob_combinations` |
 | `multi_agent_triage` | Subagent generates PromQL + LogQL; orchestrator synthesizes remediation plan | `orchestrator_models`, `subagent_model` |
 | `tool_calling` | Offers real tool schemas and scores the tool calls the model emits | `models_to_test`, `tools` |
+| `embedding_quality` | Ranks a correct passage against distractors by embedding similarity | `models_to_test`, per-case `query`/`correct` |
 
 See `examples/` for a working YAML for each workflow type.
+
+Any experiment can add `repeats: N` to run every case N times per model instead of once and
+report an average alongside the per-sample results — see [Repeats](#repeats) below. Useful
+whenever the model's behavior isn't deterministic, which tool calling in particular often isn't.
 
 ### Tool calling
 
@@ -114,6 +119,54 @@ every turn burns context and latency on questions it could have answered.
 pick the right tool, produce perfect arguments, and still be unusable in an agent because the
 call never parses. Text-based scoring rates that output highly. This metric does not.
 
+### Embedding quality
+
+`embedding_quality` scores embedding models on retrieval: for each case, it embeds a `query`
+alongside a `correct` passage and some `distractors`, then checks whether the correct passage's
+embedding is the one closest to the query's — `EmbeddingRetrievalMetric`, no judge model,
+`1 / rank` (1.0 for first place, 0.5 for second, etc.) rather than pass/fail.
+
+```yaml
+workflow: "embedding_quality"
+models_to_test:
+  - "sre/bge-large:335m-en-v1.5-fp16"
+  - "ws/nomic-embed-text"
+test_cases:
+  - name: "PromQL vs LogQL tool"
+    query: "How do I check container CPU usage?"
+    correct: "query_promql: Execute a PromQL query against Prometheus to retrieve metrics."
+    distractors:
+      - "query_logql: Execute a LogQL query against Loki to retrieve logs."
+      - "send_notification: Send a push notification to the operator via ntfy."
+```
+
+`models_to_test` here are embedding model tags, not chat models — routed through the same
+`ws/`/`sre/`/`direct_ws/`/`direct_sre/`/`ollama/` prefixes as everything else, just hitting
+Ollama's `/api/embed` (native) or `/v1/embeddings` (OpenAI-compat) instead of chat completions.
+`ExecutionMetric`, `GEval`, and `ToolCallMetric` are always `null` for this workflow — none of
+them apply to a model that only produces vectors.
+
+### Repeats
+
+Add `repeats: N` to any experiment to run each case N times per model rather than once:
+
+```yaml
+repeats: 3
+```
+
+The results JSON then carries a `samples: [...]` list (one entry per run, same shape a
+single-sample result would have) plus aggregated top-level fields: numeric scores are averaged,
+`latency_sec` is averaged, `tokens` is summed across samples. For `ToolCallMetric` specifically,
+the aggregate also includes `ToolCallPassRate` — the fraction of samples that scored a clean
+`ok` — because a mean score alone can't tell "always half-right" apart from "right half the time,
+wrong half the time," and those need different fixes. `ToolCallFailureMode` becomes
+`mixed(mode_a,mode_b)` when samples disagree on how a case failed.
+
+`repeats: 1` (the default) produces exactly the same result shape as before this existed — no
+`samples` key, no aggregation. This matters most for `tool_calling`: the same model on the same
+prompt can call a tool on one sample and answer in prose on the next, and a single sample can't
+tell you which is typical.
+
 ## Routing Models
 
 The model name prefix controls which endpoint is used:
@@ -161,12 +214,18 @@ Each run writes `results/<safe_name>_<timestamp>.json`:
         "GEvalReason": "The output mentions patterns A and B but omits C.",
         "ToolCallMetric": null,
         "ToolCallReason": "Skipped (no expected_tool_calls)",
-        "ToolCallFailureMode": null
+        "ToolCallFailureMode": null,
+        "EmbeddingRetrievalMetric": null,
+        "EmbeddingRetrievalReason": null
       }
     }
   ]
 }
 ```
+
+With `repeats: N` (N > 1), each run additionally carries `"repeats": N` and `"samples": [...]` —
+a list of N per-sample dicts in this same shape — and the top-level `scores` become averages
+across those samples (see [Repeats](#repeats)).
 
 `ExecutionMetric` only applies to code generation tasks (runs the output as Python and checks exit code). For non-code tasks it will score 0 — rely on `GEval` for those.
 
@@ -190,6 +249,7 @@ Multi-agent workflow artifacts (blog drafts, mob expert outputs) are saved to `r
 | `examples/logql-summarization.yaml` | single_agent | Log summarization / root cause identification |
 | `examples/alert-triage.yaml` | multi_agent_triage | 3-phase alert triage pipeline |
 | `examples/tool-calling.yaml` | tool_calling | Whether a model emits parseable tool calls |
+| `examples/embedding-quality.yaml` | embedding_quality | Whether an embedding model ranks the right passage first |
 | `examples/homelab/` | various | Homelab-specific reference experiments |
 
 ## Utilities
@@ -205,6 +265,6 @@ Multi-agent workflow artifacts (blog drafts, mob expert outputs) are saved to `r
 
 ### Score & Latency Metrics
 
-If `PROMETHEUS_PUSHGATEWAY_URL` is set, every test case pushes `llm_eval_score{model, experiment, case, metric}` (one series per `ExecutionMetric`/`GEval`) and `llm_eval_latency_ms{model, experiment, case}` to the Pushgateway. This requires a Pushgateway scraped by Prometheus — pushing is skipped silently if the env var is unset or the gateway is unreachable.
+If `PROMETHEUS_PUSHGATEWAY_URL` is set, every test case pushes `llm_eval_score{model, experiment, case, metric}` (one series per `ExecutionMetric`/`GEval`/`ToolCallMetric`/`EmbeddingRetrievalMetric`) and `llm_eval_latency_ms{model, experiment, case}` to the Pushgateway. With `repeats: N`, the pushed score is the mean across samples. This requires a Pushgateway scraped by Prometheus — pushing is skipped silently if the env var is unset or the gateway is unreachable.
 
 `grafana/eval-metrics-dashboard.json` visualizes these series: a quality/latency scatter (Pareto frontier per model), score trend over time per experiment, a per-model win-rate table, and a latest-run summary panel. Import it into Grafana, or drop it into a provisioning folder pointed at a Prometheus datasource.

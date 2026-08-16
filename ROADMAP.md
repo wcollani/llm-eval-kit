@@ -31,11 +31,18 @@ Run multiple models concurrently via `asyncio.gather` instead of a sequential lo
 just a score, so `unparsed_call` (model emitted a call the server never parsed) is distinguishable
 from `no_call` (model never tried).
 
-**Repeated sampling**
-Tool calling is not deterministic — the same model on the same prompt can emit a call on one run
-and prose on the next. A `repeats: N` field that runs each case N times and reports the pass rate
-(rather than a single sample) would make tool-calling results trustworthy enough to base a model
-choice on. Currently a single sample per case can mislead in either direction.
+**Repeated sampling** ✅ *done*
+`repeats: N` on any experiment runs each case N times and aggregates: numeric scores averaged,
+`ToolCallMetric` additionally gets `ToolCallPassRate` (the fraction of samples that came back
+clean), and every raw sample is kept under `samples: [...]` so nothing is thrown away. Tool
+calling is not deterministic — the same model on the same prompt can emit a call on one run and
+prose on the next — and a single sample can mislead in either direction.
+
+**Embedding quality evaluation** ✅ *done*
+`workflow: embedding_quality` scores an embedding model on retrieval: does the correct passage
+rank closest to the query, ahead of distractors? `EmbeddingRetrievalMetric` scores `1 / rank`,
+deterministically, no judge model. Previously nothing here evaluated embedding models at all —
+only chat/generation models.
 
 **Custom metric plugins**
 Allow users to define a custom `BaseMetric` subclass in a Python file and reference it from the YAML (`custom_metric: path/to/metric.py`). Currently limited to `ExecutionMetric`, `GEval`, and `ToolCallMetric`. Would let users add regex-match metrics, length checks, JSON schema validation, etc.
