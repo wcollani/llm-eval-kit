@@ -1,6 +1,7 @@
 typer
+click<8.4.0
 litellm[proxy]
-deepeval
+deepeval>=4.1.8
 opentelemetry-api
 opentelemetry-sdk
 opentelemetry-exporter-otlp
