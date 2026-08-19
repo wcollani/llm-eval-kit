@@ -32,4 +32,4 @@ dependencies = [
 llm-eval = "cli:app"
 
 [tool.setuptools]
-py-modules = ["cli", "eval_logger"]
+py-modules = ["cli", "eval_logger", "tool_call_modes"]

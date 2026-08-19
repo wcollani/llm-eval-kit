@@ -13,6 +13,7 @@ import requests
 import json
 
 from eval_logger import setup_tracing, save_experiment_results, push_metrics_to_prometheus
+from tool_call_modes import UNPARSED_PATTERNS, looks_like_unparsed_call
 from deepeval.test_case import LLMTestCase, SingleTurnParams
 from deepeval.metrics import GEval, BaseMetric
 from deepeval.models.base_model import DeepEvalBaseLLM
@@ -185,12 +186,10 @@ class ToolCallMetric(BaseMetric):
               query: "api-server-1"
     """
 
-    # A bare {"name": ..., "arguments": ...} object or a <tool_call> wrapper left in the text
-    _UNPARSED_PATTERNS = (
-        re.compile(r"<tool_call>", re.IGNORECASE),
-        re.compile(r'\{\s*"name"\s*:\s*".+?"\s*,\s*"arguments"\s*:', re.DOTALL),
-        re.compile(r'\{\s*"function"\s*:\s*\{', re.DOTALL),
-    )
+    # Defined in tool_call_modes.py, not here: harness-bench vendors that module verbatim and
+    # asks the same question over multi-turn trials. Two copies of these regexes drift, and a
+    # drift is invisible — both repos keep reporting confident numbers from different rules.
+    _UNPARSED_PATTERNS = UNPARSED_PATTERNS
 
     def __init__(
         self,
@@ -211,7 +210,7 @@ class ToolCallMetric(BaseMetric):
         self.success = False
 
     def _looks_like_unparsed_call(self) -> bool:
-        return any(p.search(self.raw_content) for p in self._UNPARSED_PATTERNS)
+        return looks_like_unparsed_call(self.raw_content)
 
     @staticmethod
     def _args_match(expected: dict, contains: dict, actual: dict) -> tuple[bool, str]:
