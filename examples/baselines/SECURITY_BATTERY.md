@@ -35,3 +35,38 @@ And it says nothing about the lane itself. This measures recognising a vulnerabi
 file put directly in front of the model. The lane is agentic: it chooses what to open and
 reasons about reachability across a worktree. An agentic security fixture in harness-bench
 remains the follow-up, and no model should be promoted to the lane on this file alone.
+
+## 2026-08-19, re-run at 1 repeat (`security-battery-2026-08-19-1x.json`)
+
+Identical result to the 3-repeat run: **sonnet 1.000 with zero incorrect actions, haiku
+0.909 with the same single false positive on `clean-subprocess-list`.** The finding
+reproduces at a third of the cost, and — more usefully — the 1-repeat default detected a
+failure rather than merely confirming a pass, which is the case that was actually in doubt.
+
+### A `wrong_tool` that was the harness's fault, not the model's
+
+The first 1-repeat attempt scored sonnet at 0.909 with a `wrong_tool` on
+`command-injection`, and it would have gone into the record as a security-detection
+failure. It was not one.
+
+Sonnet detected the vulnerability completely — `report_name` concatenated into
+`os.system`, the right symbol, a real attacker payload, and `vulnerability_class:
+"command_injection"` exactly right. It then emitted the envelope as
+`{"name": "command_injection", ...}` instead of `{"name": "report_security_finding", ...}`:
+it put the **finding's** name where the **tool's** name goes.
+
+The response contract asked for `{"name": ..., "arguments": ...}`, which is ambiguous
+whenever the thing being reported also has a natural "name". That ambiguity is the
+harness's to remove, not the model's to guess around. The field is now `tool`, with an
+explicit instruction that it holds the tool's own name, and `name` is still accepted so
+older experiments keep working.
+
+Two things worth carrying:
+
+- **`wrong_tool` was structurally impossible here** — the battery offers exactly one tool.
+  That impossibility is the only reason this was caught. A failure mode that cannot occur
+  is a free assertion; it is worth noticing when one fires.
+- This is category 2 of the report's own taxonomy — *the model chose right and the plumbing
+  dropped it* — arriving within an hour of that section being written. Knowing the pattern
+  does not confer immunity from it. **Classify the zero before counting it** applies to
+  one's own results first.

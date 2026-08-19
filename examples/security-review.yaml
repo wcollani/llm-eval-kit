@@ -43,7 +43,7 @@ system_prompt: 'You are a security reviewer. You are shown one source file. Deci
   call with an argument list and no shell is not command injection. Reporting those is a false positive,
   and a review that cries wolf gets ignored.'
 num_ctx: 8192
-repeats: 3
+repeats: 1
 models_to_test:
 - claude-cli/sonnet
 - claude-cli/haiku

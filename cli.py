@@ -387,9 +387,13 @@ You have access to the following tools:
 Answer with a single JSON object naming the ONE tool call you would make, and nothing
 else -- no prose, no markdown fence:
 
-{{"name": "<tool name>", "arguments": {{...}}}}
+{{"tool": "<tool name>", "arguments": {{...}}}}
 
-If you would not call any tool, answer exactly: {{"name": null, "arguments": {{}}}}
+`tool` is the name of the TOOL, exactly as listed above. It is not a name for the thing
+you are reporting -- if an argument already describes what you found, `tool` still holds
+the tool's own name.
+
+If you would not call any tool, answer exactly: {{"tool": null, "arguments": {{}}}}
 """
 
 
@@ -452,8 +456,17 @@ def _chat_claude_cli(model: str, system_prompt: str, input_prompt: str, tools: l
     if m:
         try:
             obj = json.loads(m.group(0))
-            if isinstance(obj, dict) and obj.get("name"):
-                tool_calls = [{"name": obj["name"], "arguments": obj.get("arguments") or {}}]
+            # `tool` is asked for; `name` is accepted because it was the original field and
+            # older experiments still use it. The field was renamed after sonnet answered
+            # {"name": "command_injection", ...} on a case whose expected tool was
+            # report_security_finding -- it had detected the vulnerability correctly and
+            # put the FINDING's name where the TOOL's name goes. That scored as wrong_tool,
+            # i.e. a correct detection recorded as a security-detection failure. The
+            # collision is real whenever an argument also has a natural "name", and it is
+            # the harness's to avoid, not the model's to guess around.
+            key = "tool" if obj.get("tool") else "name"
+            if isinstance(obj, dict) and obj.get(key):
+                tool_calls = [{"name": obj[key], "arguments": obj.get("arguments") or {}}]
         except json.JSONDecodeError:
             pass
     return output, usage, tool_calls
