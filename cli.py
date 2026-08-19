@@ -410,6 +410,12 @@ def _chat_claude_cli(model: str, system_prompt: str, input_prompt: str, tools: l
     # Its own tools are irrelevant here and would let it wander off exploring the
     # filesystem instead of answering; a routing decision needs no filesystem at all.
     argv += ["--disallowedTools", "Bash", "Read", "Write", "Edit", "Glob", "Grep", "Task", "WebFetch", "WebSearch"]
+    # No MCP servers should load for a single-turn scored question, and loading none is
+    # both correct and marginally cheaper. Measured per-call context: 26.5k with no flags,
+    # 22.2k with the tool restrictions above. The remaining ~22k is Claude Code's own
+    # system prompt and cannot be reduced through this interface -- it is the fixed price
+    # of driving the CLI, paid fresh on every sample because every sample is a new process.
+    argv += ["--strict-mcp-config"]
 
     proc = subprocess.run(argv, capture_output=True, text=True, timeout=600)
     if proc.returncode != 0:
@@ -418,10 +424,25 @@ def _chat_claude_cli(model: str, system_prompt: str, input_prompt: str, tools: l
     envelope = json.loads(proc.stdout)
     output = envelope.get("result") or ""
     u = envelope.get("usage") or {}
+
+    # Cache tokens are the real cost here and must be counted. A `claude -p` call reports
+    # input_tokens: 2 while actually consuming ~26.5k -- the session's system prompt, tool
+    # schemas and project context arrive as cache_creation + cache_read, and every
+    # invocation is a fresh process that pays that setup again before it sees the question.
+    # Recording input_tokens alone understated this eval's own consumption by four orders
+    # of magnitude, which is a bad failure for an instrument whose whole purpose is telling
+    # you which model is worth its cost.
+    cache_creation = u.get("cache_creation_input_tokens", 0)
+    cache_read = u.get("cache_read_input_tokens", 0)
+    prompt_tokens = u.get("input_tokens", 0) + cache_creation + cache_read
     usage = {
-        "prompt_tokens": u.get("input_tokens", 0),
+        "prompt_tokens": prompt_tokens,
         "completion_tokens": u.get("output_tokens", 0),
-        "total_tokens": u.get("input_tokens", 0) + u.get("output_tokens", 0),
+        "total_tokens": prompt_tokens + u.get("output_tokens", 0),
+        "cache_creation_input_tokens": cache_creation,
+        "cache_read_input_tokens": cache_read,
+        "uncached_input_tokens": u.get("input_tokens", 0),
+        "cost_usd": envelope.get("total_cost_usd"),
     }
 
     # Parse the declared call back into the same shape a real tool_calls array has, so
