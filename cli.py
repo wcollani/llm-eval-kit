@@ -1140,6 +1140,14 @@ async def _eval_combo(
 
         if repeats == 1:
             s = samples[0]
+            scores = dict(s["scores"])
+            # ToolCallPassRate is otherwise only produced by _aggregate_samples, so a
+            # single-sample run carried a failure mode but no pass rate -- and --fail-under
+            # gates on the pass rate. The gate therefore had nothing to evaluate and printed
+            # PASS unconditionally on exactly the runs that are now the default. A rate over
+            # one sample is just whether that sample passed.
+            if scores.get("ToolCallFailureMode") is not None:
+                scores["ToolCallPassRate"] = 1.0 if scores["ToolCallFailureMode"] == "ok" else 0.0
             run = {
                 "pipeline": combo,
                 "case_name": case["name"],
@@ -1147,7 +1155,7 @@ async def _eval_combo(
                 "tokens": s["tokens"],
                 "actual_output": s["actual_output"],
                 "tool_calls": s["tool_calls"],
-                "scores": s["scores"],
+                "scores": scores,
             }
         else:
             run = _aggregate_samples(combo, case["name"], samples)
@@ -1344,11 +1352,16 @@ def _print_headline(results: dict, fail_under: float | None) -> None:
     if fail_under is None:
         return
 
-    failed = {
-        p: s["ToolCallPassRate"]
-        for p, s in headline.items()
-        if s["ToolCallPassRate"] is not None and s["ToolCallPassRate"] < fail_under
-    }
+    # A gate with nothing to measure must not report success. Passing --fail-under against
+    # an experiment that produces no pass rate at all means the threshold is unenforceable,
+    # and silently printing PASS is the worst available answer.
+    measurable = {p: s for p, s in headline.items() if s["ToolCallPassRate"] is not None}
+    if not measurable:
+        print(f"\n[!] FAIL: --fail-under={fail_under} was requested but no pipeline produced a "
+              "ToolCallPassRate, so the threshold could not be evaluated.")
+        raise typer.Exit(code=1)
+
+    failed = {p: s["ToolCallPassRate"] for p, s in measurable.items() if s["ToolCallPassRate"] < fail_under}
     if failed:
         print(f"\n[!] FAIL: pass rate below --fail-under={fail_under}")
         for p, rate in sorted(failed.items()):
