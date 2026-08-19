@@ -1,0 +1,2437 @@
+{
+    "experiment_name": "Security Review Battery",
+    "runs": [
+        {
+            "pipeline": {
+                "model": "claude-cli/sonnet"
+            },
+            "case_name": "sql-injection",
+            "repeats": 3,
+            "latency_sec": 5.674,
+            "tokens": {
+                "prompt_tokens": 6,
+                "completion_tokens": 429,
+                "total_tokens": 435
+            },
+            "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"Attacker-controlled username is concatenated directly into the SQL query string, allowing an attacker to inject arbitrary SQL (e.g. bypass the WHERE clause, exfiltrate other users' data, or manipulate the query) via crafted input like `' OR '1'='1`.\", \"symbol\": \"find_user\", \"vulnerability_class\": \"sql_injection\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"sql_injection\", \"symbol\": \"find_user\", \"impact\": \"Attacker-controlled username is concatenated directly into the SQL query string, allowing an attacker to inject arbitrary SQL (e.g. bypass the WHERE clause, exfiltrate other users' data, or manipulate the query) via crafted input like `' OR '1'='1`.\"}}",
+            "tool_calls": [
+                {
+                    "name": "report_security_finding",
+                    "arguments": {
+                        "vulnerability_class": "sql_injection",
+                        "symbol": "find_user",
+                        "impact": "Attacker-controlled username is concatenated directly into the SQL query string, allowing an attacker to inject arbitrary SQL (e.g. bypass the WHERE clause, exfiltrate other users' data, or manipulate the query) via crafted input like `' OR '1'='1`."
+                    }
+                }
+            ],
+            "samples": [
+                {
+                    "latency_sec": 5.689,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 140,
+                        "total_tokens": 142
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"Attacker-controlled username is concatenated directly into SQL string, allowing arbitrary SQL injection (e.g. authentication bypass via ' OR '1'='1, or data exfiltration via UNION SELECT) instead of using parameterized query placeholders.\", \"symbol\": \"find_user\", \"vulnerability_class\": \"sql_injection\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"sql_injection\", \"symbol\": \"find_user\", \"impact\": \"Attacker-controlled username is concatenated directly into SQL string, allowing arbitrary SQL injection (e.g. authentication bypass via ' OR '1'='1, or data exfiltration via UNION SELECT) instead of using parameterized query placeholders.\"}}",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "sql_injection",
+                                "symbol": "find_user",
+                                "impact": "Attacker-controlled username is concatenated directly into SQL string, allowing arbitrary SQL injection (e.g. authentication bypass via ' OR '1'='1, or data exfiltration via UNION SELECT) instead of using parameterized query placeholders."
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 6.021,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 142,
+                        "total_tokens": 144
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"Attacker-controlled username is concatenated directly into the SQL query string, allowing arbitrary SQL injection (e.g. authentication bypass via ' OR '1'='1, or data exfiltration/modification via UNION-based injection) instead of using parameterized queries.\", \"symbol\": \"find_user\", \"vulnerability_class\": \"sql_injection\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"sql_injection\", \"symbol\": \"find_user\", \"impact\": \"Attacker-controlled username is concatenated directly into the SQL query string, allowing arbitrary SQL injection (e.g. authentication bypass via ' OR '1'='1, or data exfiltration/modification via UNION-based injection) instead of using parameterized queries.\"}}",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "sql_injection",
+                                "symbol": "find_user",
+                                "impact": "Attacker-controlled username is concatenated directly into the SQL query string, allowing arbitrary SQL injection (e.g. authentication bypass via ' OR '1'='1, or data exfiltration/modification via UNION-based injection) instead of using parameterized queries."
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 5.312,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 147,
+                        "total_tokens": 149
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"Attacker-controlled username is concatenated directly into the SQL query string, allowing an attacker to inject arbitrary SQL (e.g. bypass the WHERE clause, exfiltrate other users' data, or manipulate the query) via crafted input like `' OR '1'='1`.\", \"symbol\": \"find_user\", \"vulnerability_class\": \"sql_injection\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"sql_injection\", \"symbol\": \"find_user\", \"impact\": \"Attacker-controlled username is concatenated directly into the SQL query string, allowing an attacker to inject arbitrary SQL (e.g. bypass the WHERE clause, exfiltrate other users' data, or manipulate the query) via crafted input like `' OR '1'='1`.\"}}",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "sql_injection",
+                                "symbol": "find_user",
+                                "impact": "Attacker-controlled username is concatenated directly into the SQL query string, allowing an attacker to inject arbitrary SQL (e.g. bypass the WHERE clause, exfiltrate other users' data, or manipulate the query) via crafted input like `' OR '1'='1`."
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                }
+            ],
+            "scores": {
+                "ExecutionMetric": null,
+                "GEval": null,
+                "ToolCallMetric": 1.0,
+                "EmbeddingRetrievalMetric": null,
+                "ExecutionReason": "[1] Skipped (pass --allow-code-execution to enable) | [2] Skipped (pass --allow-code-execution to enable) | [3] Skipped (pass --allow-code-execution to enable)",
+                "GEvalReason": "[1] Skipped (no expected_output_criteria) | [2] Skipped (no expected_output_criteria) | [3] Skipped (no expected_output_criteria)",
+                "ToolCallReason": "[1] 'report_security_finding' called correctly | [2] 'report_security_finding' called correctly | [3] 'report_security_finding' called correctly",
+                "EmbeddingRetrievalReason": "",
+                "ToolCallFailureMode": "ok",
+                "ToolCallPassRate": 1.0
+            }
+        },
+        {
+            "pipeline": {
+                "model": "claude-cli/sonnet"
+            },
+            "case_name": "command-injection",
+            "repeats": 3,
+            "latency_sec": 6.862,
+            "tokens": {
+                "prompt_tokens": 6,
+                "completion_tokens": 387,
+                "total_tokens": 393
+            },
+            "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"report_name is concatenated directly into a shell command executed via os.system; an attacker-controlled report_name (e.g. containing '; rm -rf / #' or backticks/$()) can inject arbitrary shell commands executed with the privileges of the process.\", \"symbol\": \"archive_report\", \"vulnerability_class\": \"command_injection\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"command_injection\", \"symbol\": \"archive_report\", \"impact\": \"report_name is concatenated directly into a shell command executed via os.system; an attacker-controlled report_name (e.g. containing '; rm -rf / #' or backticks/$()) can inject arbitrary shell commands executed with the privileges of the process.\"}}",
+            "tool_calls": [
+                {
+                    "name": "report_security_finding",
+                    "arguments": {
+                        "vulnerability_class": "command_injection",
+                        "symbol": "archive_report",
+                        "impact": "report_name is concatenated directly into a shell command executed via os.system; an attacker-controlled report_name (e.g. containing '; rm -rf / #' or backticks/$()) can inject arbitrary shell commands executed with the privileges of the process."
+                    }
+                }
+            ],
+            "samples": [
+                {
+                    "latency_sec": 8.771,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 126,
+                        "total_tokens": 128
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"report_name is concatenated directly into a shell string passed to os.system; an attacker-controlled value like 'x; rm -rf / #' or containing backticks/$() executes arbitrary shell commands with the privileges of the process.\", \"symbol\": \"archive_report\", \"vulnerability_class\": \"command_injection\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"command_injection\", \"symbol\": \"archive_report\", \"impact\": \"report_name is concatenated directly into a shell string passed to os.system; an attacker-controlled value like 'x; rm -rf / #' or containing backticks/$() executes arbitrary shell commands with the privileges of the process.\"}}",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "command_injection",
+                                "symbol": "archive_report",
+                                "impact": "report_name is concatenated directly into a shell string passed to os.system; an attacker-controlled value like 'x; rm -rf / #' or containing backticks/$() executes arbitrary shell commands with the privileges of the process."
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 5.878,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 127,
+                        "total_tokens": 129
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"report_name is concatenated directly into a shell command string passed to os.system; an attacker-controlled value like 'x; rm -rf / #' or containing backticks/$() executes arbitrary shell commands with the privileges of the process.\", \"symbol\": \"archive_report\", \"vulnerability_class\": \"command_injection\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"command_injection\", \"symbol\": \"archive_report\", \"impact\": \"report_name is concatenated directly into a shell command string passed to os.system; an attacker-controlled value like 'x; rm -rf / #' or containing backticks/$() executes arbitrary shell commands with the privileges of the process.\"}}",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "command_injection",
+                                "symbol": "archive_report",
+                                "impact": "report_name is concatenated directly into a shell command string passed to os.system; an attacker-controlled value like 'x; rm -rf / #' or containing backticks/$() executes arbitrary shell commands with the privileges of the process."
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 5.938,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 134,
+                        "total_tokens": 136
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"report_name is concatenated directly into a shell command executed via os.system; an attacker-controlled report_name (e.g. containing '; rm -rf / #' or backticks/$()) can inject arbitrary shell commands executed with the privileges of the process.\", \"symbol\": \"archive_report\", \"vulnerability_class\": \"command_injection\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"command_injection\", \"symbol\": \"archive_report\", \"impact\": \"report_name is concatenated directly into a shell command executed via os.system; an attacker-controlled report_name (e.g. containing '; rm -rf / #' or backticks/$()) can inject arbitrary shell commands executed with the privileges of the process.\"}}",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "command_injection",
+                                "symbol": "archive_report",
+                                "impact": "report_name is concatenated directly into a shell command executed via os.system; an attacker-controlled report_name (e.g. containing '; rm -rf / #' or backticks/$()) can inject arbitrary shell commands executed with the privileges of the process."
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                }
+            ],
+            "scores": {
+                "ExecutionMetric": null,
+                "GEval": null,
+                "ToolCallMetric": 1.0,
+                "EmbeddingRetrievalMetric": null,
+                "ExecutionReason": "[1] Skipped (pass --allow-code-execution to enable) | [2] Skipped (pass --allow-code-execution to enable) | [3] Skipped (pass --allow-code-execution to enable)",
+                "GEvalReason": "[1] Skipped (no expected_output_criteria) | [2] Skipped (no expected_output_criteria) | [3] Skipped (no expected_output_criteria)",
+                "ToolCallReason": "[1] 'report_security_finding' called correctly | [2] 'report_security_finding' called correctly | [3] 'report_security_finding' called correctly",
+                "EmbeddingRetrievalReason": "",
+                "ToolCallFailureMode": "ok",
+                "ToolCallPassRate": 1.0
+            }
+        },
+        {
+            "pipeline": {
+                "model": "claude-cli/sonnet"
+            },
+            "case_name": "path-traversal",
+            "repeats": 3,
+            "latency_sec": 6.203,
+            "tokens": {
+                "prompt_tokens": 6,
+                "completion_tokens": 407,
+                "total_tokens": 413
+            },
+            "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"An attacker supplying a filename like '../../etc/passwd' (or an absolute path) can read arbitrary files outside UPLOAD_ROOT that the process has permission to access, since the filename is concatenated directly into the path with no normalization or containment check.\", \"symbol\": \"read_upload\", \"vulnerability_class\": \"path_traversal\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"path_traversal\", \"symbol\": \"read_upload\", \"impact\": \"An attacker supplying a filename like '../../etc/passwd' (or an absolute path) can read arbitrary files outside UPLOAD_ROOT that the process has permission to access, since the filename is concatenated directly into the path with no normalization or containment check.\"}}",
+            "tool_calls": [
+                {
+                    "name": "report_security_finding",
+                    "arguments": {
+                        "vulnerability_class": "path_traversal",
+                        "symbol": "read_upload",
+                        "impact": "An attacker supplying a filename like '../../etc/passwd' (or an absolute path) can read arbitrary files outside UPLOAD_ROOT that the process has permission to access, since the filename is concatenated directly into the path with no normalization or containment check."
+                    }
+                }
+            ],
+            "samples": [
+                {
+                    "latency_sec": 6.118,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 136,
+                        "total_tokens": 138
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"An attacker can supply a filename like '../../etc/passwd' or an absolute path to read arbitrary files outside UPLOAD_ROOT that the process has permission to access, since the filename is concatenated directly into the path with no sanitization or containment check.\", \"symbol\": \"read_upload\", \"vulnerability_class\": \"path_traversal\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"path_traversal\", \"symbol\": \"read_upload\", \"impact\": \"An attacker can supply a filename like '../../etc/passwd' or an absolute path to read arbitrary files outside UPLOAD_ROOT that the process has permission to access, since the filename is concatenated directly into the path with no sanitization or containment check.\"}}",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "path_traversal",
+                                "symbol": "read_upload",
+                                "impact": "An attacker can supply a filename like '../../etc/passwd' or an absolute path to read arbitrary files outside UPLOAD_ROOT that the process has permission to access, since the filename is concatenated directly into the path with no sanitization or containment check."
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 6.383,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 134,
+                        "total_tokens": 136
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"An attacker supplying a filename like '../../etc/passwd' or an absolute path can read arbitrary files outside UPLOAD_ROOT that the process has permission to access, since the input is concatenated directly into the path with no normalization or containment check.\", \"symbol\": \"read_upload\", \"vulnerability_class\": \"path_traversal\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"path_traversal\", \"symbol\": \"read_upload\", \"impact\": \"An attacker supplying a filename like '../../etc/passwd' or an absolute path can read arbitrary files outside UPLOAD_ROOT that the process has permission to access, since the input is concatenated directly into the path with no normalization or containment check.\"}}",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "path_traversal",
+                                "symbol": "read_upload",
+                                "impact": "An attacker supplying a filename like '../../etc/passwd' or an absolute path can read arbitrary files outside UPLOAD_ROOT that the process has permission to access, since the input is concatenated directly into the path with no normalization or containment check."
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 6.109,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 137,
+                        "total_tokens": 139
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"An attacker supplying a filename like '../../etc/passwd' (or an absolute path) can read arbitrary files outside UPLOAD_ROOT that the process has permission to access, since the filename is concatenated directly into the path with no normalization or containment check.\", \"symbol\": \"read_upload\", \"vulnerability_class\": \"path_traversal\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"path_traversal\", \"symbol\": \"read_upload\", \"impact\": \"An attacker supplying a filename like '../../etc/passwd' (or an absolute path) can read arbitrary files outside UPLOAD_ROOT that the process has permission to access, since the filename is concatenated directly into the path with no normalization or containment check.\"}}",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "path_traversal",
+                                "symbol": "read_upload",
+                                "impact": "An attacker supplying a filename like '../../etc/passwd' (or an absolute path) can read arbitrary files outside UPLOAD_ROOT that the process has permission to access, since the filename is concatenated directly into the path with no normalization or containment check."
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                }
+            ],
+            "scores": {
+                "ExecutionMetric": null,
+                "GEval": null,
+                "ToolCallMetric": 1.0,
+                "EmbeddingRetrievalMetric": null,
+                "ExecutionReason": "[1] Skipped (pass --allow-code-execution to enable) | [2] Skipped (pass --allow-code-execution to enable) | [3] Skipped (pass --allow-code-execution to enable)",
+                "GEvalReason": "[1] Skipped (no expected_output_criteria) | [2] Skipped (no expected_output_criteria) | [3] Skipped (no expected_output_criteria)",
+                "ToolCallReason": "[1] 'report_security_finding' called correctly | [2] 'report_security_finding' called correctly | [3] 'report_security_finding' called correctly",
+                "EmbeddingRetrievalReason": "",
+                "ToolCallFailureMode": "ok",
+                "ToolCallPassRate": 1.0
+            }
+        },
+        {
+            "pipeline": {
+                "model": "claude-cli/sonnet"
+            },
+            "case_name": "hardcoded-secret",
+            "repeats": 3,
+            "latency_sec": 6.17,
+            "tokens": {
+                "prompt_tokens": 6,
+                "completion_tokens": 418,
+                "total_tokens": 424
+            },
+            "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"Anyone with source access obtains a live Bearer token that can authenticate to the metrics ingest API as this client, allowing unauthorized data submission or API abuse; a live key in source control also risks exposure via repo history, forks, or leaks.\", \"symbol\": \"API_TOKEN\", \"vulnerability_class\": \"hardcoded_secret\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"hardcoded_secret\", \"symbol\": \"API_TOKEN\", \"impact\": \"Anyone with source access obtains a live Bearer token that can authenticate to the metrics ingest API as this client, allowing unauthorized data submission or API abuse; a live key in source control also risks exposure via repo history, forks, or leaks.\"}}",
+            "tool_calls": [
+                {
+                    "name": "report_security_finding",
+                    "arguments": {
+                        "vulnerability_class": "hardcoded_secret",
+                        "symbol": "API_TOKEN",
+                        "impact": "Anyone with source access obtains a live Bearer token that can authenticate to the metrics ingest API as this client, allowing unauthorized data submission or API abuse; a live key in source control also risks exposure via repo history, forks, or leaks."
+                    }
+                }
+            ],
+            "samples": [
+                {
+                    "latency_sec": 6.155,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 143,
+                        "total_tokens": 145
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"Anyone with read access to the source (repo history, code sharing, etc.) obtains a live bearer token that can authenticate as this client to the metrics ingest API, allowing them to inject arbitrary metrics or exhaust API quota under the legitimate account.\", \"symbol\": \"API_TOKEN\", \"vulnerability_class\": \"hardcoded_secret\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"hardcoded_secret\", \"symbol\": \"API_TOKEN\", \"impact\": \"Anyone with read access to the source (repo history, code sharing, etc.) obtains a live bearer token that can authenticate as this client to the metrics ingest API, allowing them to inject arbitrary metrics or exhaust API quota under the legitimate account.\"}}",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "hardcoded_secret",
+                                "symbol": "API_TOKEN",
+                                "impact": "Anyone with read access to the source (repo history, code sharing, etc.) obtains a live bearer token that can authenticate as this client to the metrics ingest API, allowing them to inject arbitrary metrics or exhaust API quota under the legitimate account."
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 5.784,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 137,
+                        "total_tokens": 139
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"Anyone with read access to the source (repo, VCS history, or deployed artifact) obtains a live bearer token that can be used to authenticate to metrics.example.com and push arbitrary metrics or otherwise act as the legitimate service.\", \"symbol\": \"API_TOKEN\", \"vulnerability_class\": \"hardcoded_secret\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"hardcoded_secret\", \"symbol\": \"API_TOKEN\", \"impact\": \"Anyone with read access to the source (repo, VCS history, or deployed artifact) obtains a live bearer token that can be used to authenticate to metrics.example.com and push arbitrary metrics or otherwise act as the legitimate service.\"}}",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "hardcoded_secret",
+                                "symbol": "API_TOKEN",
+                                "impact": "Anyone with read access to the source (repo, VCS history, or deployed artifact) obtains a live bearer token that can be used to authenticate to metrics.example.com and push arbitrary metrics or otherwise act as the legitimate service."
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 6.57,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 138,
+                        "total_tokens": 140
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"Anyone with source access obtains a live Bearer token that can authenticate to the metrics ingest API as this client, allowing unauthorized data submission or API abuse; a live key in source control also risks exposure via repo history, forks, or leaks.\", \"symbol\": \"API_TOKEN\", \"vulnerability_class\": \"hardcoded_secret\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"hardcoded_secret\", \"symbol\": \"API_TOKEN\", \"impact\": \"Anyone with source access obtains a live Bearer token that can authenticate to the metrics ingest API as this client, allowing unauthorized data submission or API abuse; a live key in source control also risks exposure via repo history, forks, or leaks.\"}}",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "hardcoded_secret",
+                                "symbol": "API_TOKEN",
+                                "impact": "Anyone with source access obtains a live Bearer token that can authenticate to the metrics ingest API as this client, allowing unauthorized data submission or API abuse; a live key in source control also risks exposure via repo history, forks, or leaks."
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                }
+            ],
+            "scores": {
+                "ExecutionMetric": null,
+                "GEval": null,
+                "ToolCallMetric": 1.0,
+                "EmbeddingRetrievalMetric": null,
+                "ExecutionReason": "[1] Skipped (pass --allow-code-execution to enable) | [2] Skipped (pass --allow-code-execution to enable) | [3] Skipped (pass --allow-code-execution to enable)",
+                "GEvalReason": "[1] Skipped (no expected_output_criteria) | [2] Skipped (no expected_output_criteria) | [3] Skipped (no expected_output_criteria)",
+                "ToolCallReason": "[1] 'report_security_finding' called correctly | [2] 'report_security_finding' called correctly | [3] 'report_security_finding' called correctly",
+                "EmbeddingRetrievalReason": "",
+                "ToolCallFailureMode": "ok",
+                "ToolCallPassRate": 1.0
+            }
+        },
+        {
+            "pipeline": {
+                "model": "claude-cli/sonnet"
+            },
+            "case_name": "weak-password-hash",
+            "repeats": 3,
+            "latency_sec": 6.69,
+            "tokens": {
+                "prompt_tokens": 6,
+                "completion_tokens": 376,
+                "total_tokens": 382
+            },
+            "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"Unsalted MD5 is fast and susceptible to rainbow-table and GPU brute-force attacks, allowing an attacker who obtains the password_hash column to recover plaintext passwords for most users.\", \"symbol\": \"store_password\", \"vulnerability_class\": \"weak_password_hash\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"weak_password_hash\", \"symbol\": \"store_password\", \"impact\": \"Unsalted MD5 is fast and susceptible to rainbow-table and GPU brute-force attacks, allowing an attacker who obtains the password_hash column to recover plaintext passwords for most users.\"}}",
+            "tool_calls": [
+                {
+                    "name": "report_security_finding",
+                    "arguments": {
+                        "vulnerability_class": "weak_password_hash",
+                        "symbol": "store_password",
+                        "impact": "Unsalted MD5 is fast and susceptible to rainbow-table and GPU brute-force attacks, allowing an attacker who obtains the password_hash column to recover plaintext passwords for most users."
+                    }
+                }
+            ],
+            "samples": [
+                {
+                    "latency_sec": 8.004,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 127,
+                        "total_tokens": 129
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"MD5 is fast and unsalted, making stored password hashes vulnerable to rainbow-table lookups and brute-force/GPU cracking if the database is compromised, allowing attackers to recover plaintext passwords.\", \"symbol\": \"store_password\", \"vulnerability_class\": \"weak_password_hash\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"weak_password_hash\", \"symbol\": \"store_password\", \"impact\": \"MD5 is fast and unsalted, making stored password hashes vulnerable to rainbow-table lookups and brute-force/GPU cracking if the database is compromised, allowing attackers to recover plaintext passwords.\"}}",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "weak_password_hash",
+                                "symbol": "store_password",
+                                "impact": "MD5 is fast and unsalted, making stored password hashes vulnerable to rainbow-table lookups and brute-force/GPU cracking if the database is compromised, allowing attackers to recover plaintext passwords."
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 6.067,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 127,
+                        "total_tokens": 129
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"MD5 is fast and unsalted, making stored password hashes vulnerable to rainbow-table lookups and brute-force/GPU cracking if the database is compromised, allowing attackers to recover plaintext passwords.\", \"symbol\": \"store_password\", \"vulnerability_class\": \"weak_password_hash\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"weak_password_hash\", \"symbol\": \"store_password\", \"impact\": \"MD5 is fast and unsalted, making stored password hashes vulnerable to rainbow-table lookups and brute-force/GPU cracking if the database is compromised, allowing attackers to recover plaintext passwords.\"}}",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "weak_password_hash",
+                                "symbol": "store_password",
+                                "impact": "MD5 is fast and unsalted, making stored password hashes vulnerable to rainbow-table lookups and brute-force/GPU cracking if the database is compromised, allowing attackers to recover plaintext passwords."
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 5.998,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 122,
+                        "total_tokens": 124
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"Unsalted MD5 is fast and susceptible to rainbow-table and GPU brute-force attacks, allowing an attacker who obtains the password_hash column to recover plaintext passwords for most users.\", \"symbol\": \"store_password\", \"vulnerability_class\": \"weak_password_hash\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"weak_password_hash\", \"symbol\": \"store_password\", \"impact\": \"Unsalted MD5 is fast and susceptible to rainbow-table and GPU brute-force attacks, allowing an attacker who obtains the password_hash column to recover plaintext passwords for most users.\"}}",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "weak_password_hash",
+                                "symbol": "store_password",
+                                "impact": "Unsalted MD5 is fast and susceptible to rainbow-table and GPU brute-force attacks, allowing an attacker who obtains the password_hash column to recover plaintext passwords for most users."
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                }
+            ],
+            "scores": {
+                "ExecutionMetric": null,
+                "GEval": null,
+                "ToolCallMetric": 1.0,
+                "EmbeddingRetrievalMetric": null,
+                "ExecutionReason": "[1] Skipped (pass --allow-code-execution to enable) | [2] Skipped (pass --allow-code-execution to enable) | [3] Skipped (pass --allow-code-execution to enable)",
+                "GEvalReason": "[1] Skipped (no expected_output_criteria) | [2] Skipped (no expected_output_criteria) | [3] Skipped (no expected_output_criteria)",
+                "ToolCallReason": "[1] 'report_security_finding' called correctly | [2] 'report_security_finding' called correctly | [3] 'report_security_finding' called correctly",
+                "EmbeddingRetrievalReason": "",
+                "ToolCallFailureMode": "ok",
+                "ToolCallPassRate": 1.0
+            }
+        },
+        {
+            "pipeline": {
+                "model": "claude-cli/sonnet"
+            },
+            "case_name": "missing-authorization",
+            "repeats": 3,
+            "latency_sec": 6.347,
+            "tokens": {
+                "prompt_tokens": 6,
+                "completion_tokens": 429,
+                "total_tokens": 435
+            },
+            "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"Any authenticated user can retrieve any invoice by guessing/enumerating invoice_id, since the query never checks that the invoice belongs to the requesting user (no ownership/tenant check).\", \"symbol\": \"get_invoice\", \"vulnerability_class\": \"missing_authorization\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"missing_authorization\", \"symbol\": \"get_invoice\", \"impact\": \"Any authenticated user can retrieve any invoice by guessing/enumerating invoice_id, since the query never checks that the invoice belongs to the requesting user (no ownership/tenant check).\"}}",
+            "tool_calls": [
+                {
+                    "name": "report_security_finding",
+                    "arguments": {
+                        "vulnerability_class": "missing_authorization",
+                        "symbol": "get_invoice",
+                        "impact": "Any authenticated user can retrieve any invoice by guessing/enumerating invoice_id, since the query never checks that the invoice belongs to the requesting user (no ownership/tenant check)."
+                    }
+                }
+            ],
+            "samples": [
+                {
+                    "latency_sec": 5.52,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 128,
+                        "total_tokens": 130
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"Any authenticated user can access any invoice by ID (IDOR) since the handler checks only that a session exists, not that the invoice belongs to the requesting user, allowing enumeration and disclosure of other users' invoice data.\", \"symbol\": \"get_invoice\", \"vulnerability_class\": \"missing_authorization\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"missing_authorization\", \"symbol\": \"get_invoice\", \"impact\": \"Any authenticated user can access any invoice by ID (IDOR) since the handler checks only that a session exists, not that the invoice belongs to the requesting user, allowing enumeration and disclosure of other users' invoice data.\"}}",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "missing_authorization",
+                                "symbol": "get_invoice",
+                                "impact": "Any authenticated user can access any invoice by ID (IDOR) since the handler checks only that a session exists, not that the invoice belongs to the requesting user, allowing enumeration and disclosure of other users' invoice data."
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 7.457,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 182,
+                        "total_tokens": 184
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"Any authenticated user can read any other user's invoice by guessing/incrementing invoice_id, since the query only filters by id with no check that the invoice belongs to the logged-in user (IDOR).\", \"symbol\": \"get_invoice\", \"vulnerability_class\": \"missing_authorization\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"missing_authorization\", \"symbol\": \"get_invoice\", \"impact\": \"Any authenticated user can read any other user's invoice by guessing/incrementing invoice_id, since the query only filters by id with no check that the invoice belongs to the logged-in user (IDOR).\"}}",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "missing_authorization",
+                                "symbol": "get_invoice",
+                                "impact": "Any authenticated user can read any other user's invoice by guessing/incrementing invoice_id, since the query only filters by id with no check that the invoice belongs to the logged-in user (IDOR)."
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 6.063,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 119,
+                        "total_tokens": 121
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"Any authenticated user can retrieve any invoice by guessing/enumerating invoice_id, since the query never checks that the invoice belongs to the requesting user (no ownership/tenant check).\", \"symbol\": \"get_invoice\", \"vulnerability_class\": \"missing_authorization\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"missing_authorization\", \"symbol\": \"get_invoice\", \"impact\": \"Any authenticated user can retrieve any invoice by guessing/enumerating invoice_id, since the query never checks that the invoice belongs to the requesting user (no ownership/tenant check).\"}}",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "missing_authorization",
+                                "symbol": "get_invoice",
+                                "impact": "Any authenticated user can retrieve any invoice by guessing/enumerating invoice_id, since the query never checks that the invoice belongs to the requesting user (no ownership/tenant check)."
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                }
+            ],
+            "scores": {
+                "ExecutionMetric": null,
+                "GEval": null,
+                "ToolCallMetric": 1.0,
+                "EmbeddingRetrievalMetric": null,
+                "ExecutionReason": "[1] Skipped (pass --allow-code-execution to enable) | [2] Skipped (pass --allow-code-execution to enable) | [3] Skipped (pass --allow-code-execution to enable)",
+                "GEvalReason": "[1] Skipped (no expected_output_criteria) | [2] Skipped (no expected_output_criteria) | [3] Skipped (no expected_output_criteria)",
+                "ToolCallReason": "[1] 'report_security_finding' called correctly | [2] 'report_security_finding' called correctly | [3] 'report_security_finding' called correctly",
+                "EmbeddingRetrievalReason": "",
+                "ToolCallFailureMode": "ok",
+                "ToolCallPassRate": 1.0
+            }
+        },
+        {
+            "pipeline": {
+                "model": "claude-cli/sonnet"
+            },
+            "case_name": "unsafe-deserialization",
+            "repeats": 3,
+            "latency_sec": 5.752,
+            "tokens": {
+                "prompt_tokens": 6,
+                "completion_tokens": 358,
+                "total_tokens": 364
+            },
+            "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"An attacker who controls the cookie_value can craft a malicious pickle payload that executes arbitrary code (e.g., via __reduce__) when pickle.loads deserializes it, leading to remote code execution.\", \"symbol\": \"restore_session\", \"vulnerability_class\": \"unsafe_deserialization\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"unsafe_deserialization\", \"symbol\": \"restore_session\", \"impact\": \"An attacker who controls the cookie_value can craft a malicious pickle payload that executes arbitrary code (e.g., via __reduce__) when pickle.loads deserializes it, leading to remote code execution.\"}}",
+            "tool_calls": [
+                {
+                    "name": "report_security_finding",
+                    "arguments": {
+                        "vulnerability_class": "unsafe_deserialization",
+                        "symbol": "restore_session",
+                        "impact": "An attacker who controls the cookie_value can craft a malicious pickle payload that executes arbitrary code (e.g., via __reduce__) when pickle.loads deserializes it, leading to remote code execution."
+                    }
+                }
+            ],
+            "samples": [
+                {
+                    "latency_sec": 6.282,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 115,
+                        "total_tokens": 117
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"An attacker who controls the cookie_value can craft a malicious pickle payload that executes arbitrary code when pickle.loads() deserializes it, leading to remote code execution.\", \"symbol\": \"restore_session\", \"vulnerability_class\": \"unsafe_deserialization\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"unsafe_deserialization\", \"symbol\": \"restore_session\", \"impact\": \"An attacker who controls the cookie_value can craft a malicious pickle payload that executes arbitrary code when pickle.loads() deserializes it, leading to remote code execution.\"}}",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "unsafe_deserialization",
+                                "symbol": "restore_session",
+                                "impact": "An attacker who controls the cookie_value can craft a malicious pickle payload that executes arbitrary code when pickle.loads() deserializes it, leading to remote code execution."
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 5.507,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 117,
+                        "total_tokens": 119
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"Attacker crafts a malicious pickle payload, base64-encodes it as the cookie value; pickle.loads executes arbitrary code during deserialization, giving remote code execution.\", \"symbol\": \"restore_session\", \"vulnerability_class\": \"unsafe_deserialization\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"unsafe_deserialization\", \"symbol\": \"restore_session\", \"impact\": \"Attacker crafts a malicious pickle payload, base64-encodes it as the cookie value; pickle.loads executes arbitrary code during deserialization, giving remote code execution.\"}}",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "unsafe_deserialization",
+                                "symbol": "restore_session",
+                                "impact": "Attacker crafts a malicious pickle payload, base64-encodes it as the cookie value; pickle.loads executes arbitrary code during deserialization, giving remote code execution."
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 5.468,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 126,
+                        "total_tokens": 128
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"An attacker who controls the cookie_value can craft a malicious pickle payload that executes arbitrary code (e.g., via __reduce__) when pickle.loads deserializes it, leading to remote code execution.\", \"symbol\": \"restore_session\", \"vulnerability_class\": \"unsafe_deserialization\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"unsafe_deserialization\", \"symbol\": \"restore_session\", \"impact\": \"An attacker who controls the cookie_value can craft a malicious pickle payload that executes arbitrary code (e.g., via __reduce__) when pickle.loads deserializes it, leading to remote code execution.\"}}",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "unsafe_deserialization",
+                                "symbol": "restore_session",
+                                "impact": "An attacker who controls the cookie_value can craft a malicious pickle payload that executes arbitrary code (e.g., via __reduce__) when pickle.loads deserializes it, leading to remote code execution."
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                }
+            ],
+            "scores": {
+                "ExecutionMetric": null,
+                "GEval": null,
+                "ToolCallMetric": 1.0,
+                "EmbeddingRetrievalMetric": null,
+                "ExecutionReason": "[1] Skipped (pass --allow-code-execution to enable) | [2] Skipped (pass --allow-code-execution to enable) | [3] Skipped (pass --allow-code-execution to enable)",
+                "GEvalReason": "[1] Skipped (no expected_output_criteria) | [2] Skipped (no expected_output_criteria) | [3] Skipped (no expected_output_criteria)",
+                "ToolCallReason": "[1] 'report_security_finding' called correctly | [2] 'report_security_finding' called correctly | [3] 'report_security_finding' called correctly",
+                "EmbeddingRetrievalReason": "",
+                "ToolCallFailureMode": "ok",
+                "ToolCallPassRate": 1.0
+            }
+        },
+        {
+            "pipeline": {
+                "model": "claude-cli/sonnet"
+            },
+            "case_name": "clean-parameterized-query",
+            "repeats": 3,
+            "latency_sec": 7.006,
+            "tokens": {
+                "prompt_tokens": 6,
+                "completion_tokens": 48,
+                "total_tokens": 54
+            },
+            "actual_output": "{\"name\": null, \"arguments\": {}}",
+            "tool_calls": [],
+            "samples": [
+                {
+                    "latency_sec": 9.924,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 16,
+                        "total_tokens": 18
+                    },
+                    "actual_output": "{\"name\": null, \"arguments\": {}}",
+                    "tool_calls": [],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "No tool call emitted, as expected.",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 4.215,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 16,
+                        "total_tokens": 18
+                    },
+                    "actual_output": "{\"name\": null, \"arguments\": {}}",
+                    "tool_calls": [],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "No tool call emitted, as expected.",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 6.88,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 16,
+                        "total_tokens": 18
+                    },
+                    "actual_output": "{\"name\": null, \"arguments\": {}}",
+                    "tool_calls": [],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "No tool call emitted, as expected.",
+                        "ToolCallFailureMode": "ok"
+                    }
+                }
+            ],
+            "scores": {
+                "ExecutionMetric": null,
+                "GEval": null,
+                "ToolCallMetric": 1.0,
+                "EmbeddingRetrievalMetric": null,
+                "ExecutionReason": "[1] Skipped (pass --allow-code-execution to enable) | [2] Skipped (pass --allow-code-execution to enable) | [3] Skipped (pass --allow-code-execution to enable)",
+                "GEvalReason": "[1] Skipped (no expected_output_criteria) | [2] Skipped (no expected_output_criteria) | [3] Skipped (no expected_output_criteria)",
+                "ToolCallReason": "[1] No tool call emitted, as expected. | [2] No tool call emitted, as expected. | [3] No tool call emitted, as expected.",
+                "EmbeddingRetrievalReason": "",
+                "ToolCallFailureMode": "ok",
+                "ToolCallPassRate": 1.0
+            }
+        },
+        {
+            "pipeline": {
+                "model": "claude-cli/sonnet"
+            },
+            "case_name": "clean-subprocess-list",
+            "repeats": 3,
+            "latency_sec": 5.008,
+            "tokens": {
+                "prompt_tokens": 6,
+                "completion_tokens": 48,
+                "total_tokens": 54
+            },
+            "actual_output": "{\"name\": null, \"arguments\": {}}",
+            "tool_calls": [],
+            "samples": [
+                {
+                    "latency_sec": 6.207,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 16,
+                        "total_tokens": 18
+                    },
+                    "actual_output": "{\"name\": null, \"arguments\": {}}",
+                    "tool_calls": [],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "No tool call emitted, as expected.",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 4.277,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 16,
+                        "total_tokens": 18
+                    },
+                    "actual_output": "{\"name\": null, \"arguments\": {}}",
+                    "tool_calls": [],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "No tool call emitted, as expected.",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 4.539,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 16,
+                        "total_tokens": 18
+                    },
+                    "actual_output": "{\"name\": null, \"arguments\": {}}",
+                    "tool_calls": [],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "No tool call emitted, as expected.",
+                        "ToolCallFailureMode": "ok"
+                    }
+                }
+            ],
+            "scores": {
+                "ExecutionMetric": null,
+                "GEval": null,
+                "ToolCallMetric": 1.0,
+                "EmbeddingRetrievalMetric": null,
+                "ExecutionReason": "[1] Skipped (pass --allow-code-execution to enable) | [2] Skipped (pass --allow-code-execution to enable) | [3] Skipped (pass --allow-code-execution to enable)",
+                "GEvalReason": "[1] Skipped (no expected_output_criteria) | [2] Skipped (no expected_output_criteria) | [3] Skipped (no expected_output_criteria)",
+                "ToolCallReason": "[1] No tool call emitted, as expected. | [2] No tool call emitted, as expected. | [3] No tool call emitted, as expected.",
+                "EmbeddingRetrievalReason": "",
+                "ToolCallFailureMode": "ok",
+                "ToolCallPassRate": 1.0
+            }
+        },
+        {
+            "pipeline": {
+                "model": "claude-cli/sonnet"
+            },
+            "case_name": "clean-validated-path",
+            "repeats": 3,
+            "latency_sec": 5.506,
+            "tokens": {
+                "prompt_tokens": 6,
+                "completion_tokens": 48,
+                "total_tokens": 54
+            },
+            "actual_output": "{\"name\": null, \"arguments\": {}}",
+            "tool_calls": [],
+            "samples": [
+                {
+                    "latency_sec": 5.932,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 16,
+                        "total_tokens": 18
+                    },
+                    "actual_output": "{\"name\": null, \"arguments\": {}}",
+                    "tool_calls": [],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "No tool call emitted, as expected.",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 5.274,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 16,
+                        "total_tokens": 18
+                    },
+                    "actual_output": "{\"name\": null, \"arguments\": {}}",
+                    "tool_calls": [],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "No tool call emitted, as expected.",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 5.313,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 16,
+                        "total_tokens": 18
+                    },
+                    "actual_output": "{\"name\": null, \"arguments\": {}}",
+                    "tool_calls": [],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "No tool call emitted, as expected.",
+                        "ToolCallFailureMode": "ok"
+                    }
+                }
+            ],
+            "scores": {
+                "ExecutionMetric": null,
+                "GEval": null,
+                "ToolCallMetric": 1.0,
+                "EmbeddingRetrievalMetric": null,
+                "ExecutionReason": "[1] Skipped (pass --allow-code-execution to enable) | [2] Skipped (pass --allow-code-execution to enable) | [3] Skipped (pass --allow-code-execution to enable)",
+                "GEvalReason": "[1] Skipped (no expected_output_criteria) | [2] Skipped (no expected_output_criteria) | [3] Skipped (no expected_output_criteria)",
+                "ToolCallReason": "[1] No tool call emitted, as expected. | [2] No tool call emitted, as expected. | [3] No tool call emitted, as expected.",
+                "EmbeddingRetrievalReason": "",
+                "ToolCallFailureMode": "ok",
+                "ToolCallPassRate": 1.0
+            }
+        },
+        {
+            "pipeline": {
+                "model": "claude-cli/sonnet"
+            },
+            "case_name": "clean-env-secret",
+            "repeats": 3,
+            "latency_sec": 4.513,
+            "tokens": {
+                "prompt_tokens": 6,
+                "completion_tokens": 48,
+                "total_tokens": 54
+            },
+            "actual_output": "{\"name\": null, \"arguments\": {}}",
+            "tool_calls": [],
+            "samples": [
+                {
+                    "latency_sec": 4.484,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 16,
+                        "total_tokens": 18
+                    },
+                    "actual_output": "{\"name\": null, \"arguments\": {}}",
+                    "tool_calls": [],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "No tool call emitted, as expected.",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 4.547,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 16,
+                        "total_tokens": 18
+                    },
+                    "actual_output": "{\"name\": null, \"arguments\": {}}",
+                    "tool_calls": [],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "No tool call emitted, as expected.",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 4.507,
+                    "tokens": {
+                        "prompt_tokens": 2,
+                        "completion_tokens": 16,
+                        "total_tokens": 18
+                    },
+                    "actual_output": "{\"name\": null, \"arguments\": {}}",
+                    "tool_calls": [],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "No tool call emitted, as expected.",
+                        "ToolCallFailureMode": "ok"
+                    }
+                }
+            ],
+            "scores": {
+                "ExecutionMetric": null,
+                "GEval": null,
+                "ToolCallMetric": 1.0,
+                "EmbeddingRetrievalMetric": null,
+                "ExecutionReason": "[1] Skipped (pass --allow-code-execution to enable) | [2] Skipped (pass --allow-code-execution to enable) | [3] Skipped (pass --allow-code-execution to enable)",
+                "GEvalReason": "[1] Skipped (no expected_output_criteria) | [2] Skipped (no expected_output_criteria) | [3] Skipped (no expected_output_criteria)",
+                "ToolCallReason": "[1] No tool call emitted, as expected. | [2] No tool call emitted, as expected. | [3] No tool call emitted, as expected.",
+                "EmbeddingRetrievalReason": "",
+                "ToolCallFailureMode": "ok",
+                "ToolCallPassRate": 1.0
+            }
+        },
+        {
+            "pipeline": {
+                "model": "claude-cli/haiku"
+            },
+            "case_name": "sql-injection",
+            "repeats": 3,
+            "latency_sec": 8.167,
+            "tokens": {
+                "prompt_tokens": 27,
+                "completion_tokens": 1415,
+                "total_tokens": 1442
+            },
+            "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"Attacker can inject arbitrary SQL by providing a malicious username string (e.g., 'admin' OR '1'='1' or '; DROP TABLE users; --'), enabling data exfiltration, modification, or destruction\", \"symbol\": \"find_user\", \"vulnerability_class\": \"sql_injection\"})\n\nContent:\n```json\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"sql_injection\", \"symbol\": \"find_user\", \"impact\": \"Attacker can inject arbitrary SQL by providing a malicious username string (e.g., 'admin' OR '1'='1' or '; DROP TABLE users; --'), enabling data exfiltration, modification, or destruction\"}}\n```",
+            "tool_calls": [
+                {
+                    "name": "report_security_finding",
+                    "arguments": {
+                        "vulnerability_class": "sql_injection",
+                        "symbol": "find_user",
+                        "impact": "Attacker can inject arbitrary SQL by providing a malicious username string (e.g., 'admin' OR '1'='1' or '; DROP TABLE users; --'), enabling data exfiltration, modification, or destruction"
+                    }
+                }
+            ],
+            "samples": [
+                {
+                    "latency_sec": 7.549,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 428,
+                        "total_tokens": 437
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"Attacker can inject arbitrary SQL by providing a malicious username, bypassing authentication, extracting unauthorized data, or modifying/deleting database records\", \"symbol\": \"find_user\", \"vulnerability_class\": \"sql_injection\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"sql_injection\", \"symbol\": \"find_user\", \"impact\": \"Attacker can inject arbitrary SQL by providing a malicious username, bypassing authentication, extracting unauthorized data, or modifying/deleting database records\"}}",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "sql_injection",
+                                "symbol": "find_user",
+                                "impact": "Attacker can inject arbitrary SQL by providing a malicious username, bypassing authentication, extracting unauthorized data, or modifying/deleting database records"
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 7.764,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 495,
+                        "total_tokens": 504
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"Attacker can inject SQL code through the username parameter to extract unauthorized data, bypass authentication, modify or delete database records\", \"symbol\": \"find_user\", \"vulnerability_class\": \"sql_injection\"})\n\nContent:\n```json\n{\n  \"name\": \"report_security_finding\",\n  \"arguments\": {\n    \"vulnerability_class\": \"sql_injection\",\n    \"symbol\": \"find_user\",\n    \"impact\": \"Attacker can inject SQL code through the username parameter to extract unauthorized data, bypass authentication, modify or delete database records\"\n  }\n}\n```",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "sql_injection",
+                                "symbol": "find_user",
+                                "impact": "Attacker can inject SQL code through the username parameter to extract unauthorized data, bypass authentication, modify or delete database records"
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 9.188,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 492,
+                        "total_tokens": 501
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"Attacker can inject arbitrary SQL by providing a malicious username string (e.g., 'admin' OR '1'='1' or '; DROP TABLE users; --'), enabling data exfiltration, modification, or destruction\", \"symbol\": \"find_user\", \"vulnerability_class\": \"sql_injection\"})\n\nContent:\n```json\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"sql_injection\", \"symbol\": \"find_user\", \"impact\": \"Attacker can inject arbitrary SQL by providing a malicious username string (e.g., 'admin' OR '1'='1' or '; DROP TABLE users; --'), enabling data exfiltration, modification, or destruction\"}}\n```",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "sql_injection",
+                                "symbol": "find_user",
+                                "impact": "Attacker can inject arbitrary SQL by providing a malicious username string (e.g., 'admin' OR '1'='1' or '; DROP TABLE users; --'), enabling data exfiltration, modification, or destruction"
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                }
+            ],
+            "scores": {
+                "ExecutionMetric": null,
+                "GEval": null,
+                "ToolCallMetric": 1.0,
+                "EmbeddingRetrievalMetric": null,
+                "ExecutionReason": "[1] Skipped (pass --allow-code-execution to enable) | [2] Skipped (pass --allow-code-execution to enable) | [3] Skipped (pass --allow-code-execution to enable)",
+                "GEvalReason": "[1] Skipped (no expected_output_criteria) | [2] Skipped (no expected_output_criteria) | [3] Skipped (no expected_output_criteria)",
+                "ToolCallReason": "[1] 'report_security_finding' called correctly | [2] 'report_security_finding' called correctly | [3] 'report_security_finding' called correctly",
+                "EmbeddingRetrievalReason": "",
+                "ToolCallFailureMode": "ok",
+                "ToolCallPassRate": 1.0
+            }
+        },
+        {
+            "pipeline": {
+                "model": "claude-cli/haiku"
+            },
+            "case_name": "command-injection",
+            "repeats": 3,
+            "latency_sec": 8.614,
+            "tokens": {
+                "prompt_tokens": 27,
+                "completion_tokens": 1474,
+                "total_tokens": 1501
+            },
+            "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"An attacker can inject shell metacharacters via the report_name parameter to execute arbitrary commands with the privileges of the process\", \"symbol\": \"archive_report\", \"vulnerability_class\": \"command_injection\"})\n\nContent:\n```json\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"command_injection\", \"symbol\": \"archive_report\", \"impact\": \"An attacker can inject shell metacharacters via the report_name parameter to execute arbitrary commands with the privileges of the process\"}}\n```",
+            "tool_calls": [
+                {
+                    "name": "report_security_finding",
+                    "arguments": {
+                        "vulnerability_class": "command_injection",
+                        "symbol": "archive_report",
+                        "impact": "An attacker can inject shell metacharacters via the report_name parameter to execute arbitrary commands with the privileges of the process"
+                    }
+                }
+            ],
+            "samples": [
+                {
+                    "latency_sec": 8.434,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 502,
+                        "total_tokens": 511
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"Attacker can inject arbitrary shell commands via the report_name parameter, achieving remote code execution with the privileges of the process\", \"symbol\": \"archive_report\", \"vulnerability_class\": \"command_injection\"})\n\nContent:\n```json\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"command_injection\", \"symbol\": \"archive_report\", \"impact\": \"Attacker can inject arbitrary shell commands via the report_name parameter, achieving remote code execution with the privileges of the process\"}}\n```",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "command_injection",
+                                "symbol": "archive_report",
+                                "impact": "Attacker can inject arbitrary shell commands via the report_name parameter, achieving remote code execution with the privileges of the process"
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 7.881,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 467,
+                        "total_tokens": 476
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"An attacker can inject shell commands through the report_name parameter. For example, passing `report_name = \\\"test; rm -rf /\\\"` would execute arbitrary commands with the privileges of the process running this code.\", \"symbol\": \"archive_report\", \"vulnerability_class\": \"command_injection\"})\n\nContent:\n```json\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"command_injection\", \"symbol\": \"archive_report\", \"impact\": \"An attacker can inject shell commands through the report_name parameter. For example, passing `report_name = \\\"test; rm -rf /\\\"` would execute arbitrary commands with the privileges of the process running this code.\"}}\n```",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "command_injection",
+                                "symbol": "archive_report",
+                                "impact": "An attacker can inject shell commands through the report_name parameter. For example, passing `report_name = \"test; rm -rf /\"` would execute arbitrary commands with the privileges of the process running this code."
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 9.528,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 505,
+                        "total_tokens": 514
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"An attacker can inject shell metacharacters via the report_name parameter to execute arbitrary commands with the privileges of the process\", \"symbol\": \"archive_report\", \"vulnerability_class\": \"command_injection\"})\n\nContent:\n```json\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"command_injection\", \"symbol\": \"archive_report\", \"impact\": \"An attacker can inject shell metacharacters via the report_name parameter to execute arbitrary commands with the privileges of the process\"}}\n```",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "command_injection",
+                                "symbol": "archive_report",
+                                "impact": "An attacker can inject shell metacharacters via the report_name parameter to execute arbitrary commands with the privileges of the process"
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                }
+            ],
+            "scores": {
+                "ExecutionMetric": null,
+                "GEval": null,
+                "ToolCallMetric": 1.0,
+                "EmbeddingRetrievalMetric": null,
+                "ExecutionReason": "[1] Skipped (pass --allow-code-execution to enable) | [2] Skipped (pass --allow-code-execution to enable) | [3] Skipped (pass --allow-code-execution to enable)",
+                "GEvalReason": "[1] Skipped (no expected_output_criteria) | [2] Skipped (no expected_output_criteria) | [3] Skipped (no expected_output_criteria)",
+                "ToolCallReason": "[1] 'report_security_finding' called correctly | [2] 'report_security_finding' called correctly | [3] 'report_security_finding' called correctly",
+                "EmbeddingRetrievalReason": "",
+                "ToolCallFailureMode": "ok",
+                "ToolCallPassRate": 1.0
+            }
+        },
+        {
+            "pipeline": {
+                "model": "claude-cli/haiku"
+            },
+            "case_name": "path-traversal",
+            "repeats": 3,
+            "latency_sec": 8.263,
+            "tokens": {
+                "prompt_tokens": 27,
+                "completion_tokens": 1407,
+                "total_tokens": 1434
+            },
+            "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"Attacker can read arbitrary files on the filesystem by passing directory traversal sequences (e.g., '../../../etc/passwd') to bypass the UPLOAD_ROOT restriction\", \"symbol\": \"read_upload\", \"vulnerability_class\": \"path_traversal\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"path_traversal\", \"symbol\": \"read_upload\", \"impact\": \"Attacker can read arbitrary files on the filesystem by passing directory traversal sequences (e.g., '../../../etc/passwd') to bypass the UPLOAD_ROOT restriction\"}}",
+            "tool_calls": [
+                {
+                    "name": "report_security_finding",
+                    "arguments": {
+                        "vulnerability_class": "path_traversal",
+                        "symbol": "read_upload",
+                        "impact": "Attacker can read arbitrary files on the filesystem by passing directory traversal sequences (e.g., '../../../etc/passwd') to bypass the UPLOAD_ROOT restriction"
+                    }
+                }
+            ],
+            "samples": [
+                {
+                    "latency_sec": 8.043,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 414,
+                        "total_tokens": 423
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"Attacker can read arbitrary files outside /srv/uploads/ by passing path traversal sequences (e.g., '../../../etc/passwd') in the filename parameter\", \"symbol\": \"read_upload\", \"vulnerability_class\": \"path_traversal\"})\n\nContent:\n```json\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"path_traversal\", \"symbol\": \"read_upload\", \"impact\": \"Attacker can read arbitrary files outside /srv/uploads/ by passing path traversal sequences (e.g., '../../../etc/passwd') in the filename parameter\"}}\n```",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "path_traversal",
+                                "symbol": "read_upload",
+                                "impact": "Attacker can read arbitrary files outside /srv/uploads/ by passing path traversal sequences (e.g., '../../../etc/passwd') in the filename parameter"
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 9.004,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 616,
+                        "total_tokens": 625
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"Attacker can read arbitrary files on the filesystem by passing a filename containing path traversal sequences (e.g., '../../../etc/passwd'), escaping the intended UPLOAD_ROOT directory\", \"symbol\": \"read_upload\", \"vulnerability_class\": \"path_traversal\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"path_traversal\", \"symbol\": \"read_upload\", \"impact\": \"Attacker can read arbitrary files on the filesystem by passing a filename containing path traversal sequences (e.g., '../../../etc/passwd'), escaping the intended UPLOAD_ROOT directory\"}}",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "path_traversal",
+                                "symbol": "read_upload",
+                                "impact": "Attacker can read arbitrary files on the filesystem by passing a filename containing path traversal sequences (e.g., '../../../etc/passwd'), escaping the intended UPLOAD_ROOT directory"
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 7.742,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 377,
+                        "total_tokens": 386
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"Attacker can read arbitrary files on the filesystem by passing directory traversal sequences (e.g., '../../../etc/passwd') to bypass the UPLOAD_ROOT restriction\", \"symbol\": \"read_upload\", \"vulnerability_class\": \"path_traversal\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"path_traversal\", \"symbol\": \"read_upload\", \"impact\": \"Attacker can read arbitrary files on the filesystem by passing directory traversal sequences (e.g., '../../../etc/passwd') to bypass the UPLOAD_ROOT restriction\"}}",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "path_traversal",
+                                "symbol": "read_upload",
+                                "impact": "Attacker can read arbitrary files on the filesystem by passing directory traversal sequences (e.g., '../../../etc/passwd') to bypass the UPLOAD_ROOT restriction"
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                }
+            ],
+            "scores": {
+                "ExecutionMetric": null,
+                "GEval": null,
+                "ToolCallMetric": 1.0,
+                "EmbeddingRetrievalMetric": null,
+                "ExecutionReason": "[1] Skipped (pass --allow-code-execution to enable) | [2] Skipped (pass --allow-code-execution to enable) | [3] Skipped (pass --allow-code-execution to enable)",
+                "GEvalReason": "[1] Skipped (no expected_output_criteria) | [2] Skipped (no expected_output_criteria) | [3] Skipped (no expected_output_criteria)",
+                "ToolCallReason": "[1] 'report_security_finding' called correctly | [2] 'report_security_finding' called correctly | [3] 'report_security_finding' called correctly",
+                "EmbeddingRetrievalReason": "",
+                "ToolCallFailureMode": "ok",
+                "ToolCallPassRate": 1.0
+            }
+        },
+        {
+            "pipeline": {
+                "model": "claude-cli/haiku"
+            },
+            "case_name": "hardcoded-secret",
+            "repeats": 3,
+            "latency_sec": 9.496,
+            "tokens": {
+                "prompt_tokens": 27,
+                "completion_tokens": 1661,
+                "total_tokens": 1688
+            },
+            "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"The hardcoded API token can be extracted by anyone with access to the source code, version control history, or deployed artifacts, allowing unauthorized use of the metrics API and potential data manipulation or exfiltration.\", \"symbol\": \"API_TOKEN\", \"vulnerability_class\": \"hardcoded_secret\"})\n\nContent:\n```json\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"hardcoded_secret\", \"symbol\": \"API_TOKEN\", \"impact\": \"The hardcoded API token can be extracted by anyone with access to the source code, version control history, or deployed artifacts, allowing unauthorized use of the metrics API and potential data manipulation or exfiltration.\"}}\n```",
+            "tool_calls": [
+                {
+                    "name": "report_security_finding",
+                    "arguments": {
+                        "vulnerability_class": "hardcoded_secret",
+                        "symbol": "API_TOKEN",
+                        "impact": "The hardcoded API token can be extracted by anyone with access to the source code, version control history, or deployed artifacts, allowing unauthorized use of the metrics API and potential data manipulation or exfiltration."
+                    }
+                }
+            ],
+            "samples": [
+                {
+                    "latency_sec": 10.279,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 589,
+                        "total_tokens": 598
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"An attacker with access to the repository can extract the API token and make unauthorized requests to metrics.example.com, potentially injecting false metrics or accessing/modifying other users' data.\", \"symbol\": \"API_TOKEN\", \"vulnerability_class\": \"hardcoded_secret\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"hardcoded_secret\", \"symbol\": \"API_TOKEN\", \"impact\": \"An attacker with access to the repository can extract the API token and make unauthorized requests to metrics.example.com, potentially injecting false metrics or accessing/modifying other users' data.\"}}",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "hardcoded_secret",
+                                "symbol": "API_TOKEN",
+                                "impact": "An attacker with access to the repository can extract the API token and make unauthorized requests to metrics.example.com, potentially injecting false metrics or accessing/modifying other users' data."
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 8.957,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 502,
+                        "total_tokens": 511
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"Anyone with access to the source code, repository history, or deployed application gains a valid API credential that authenticates to the metrics service; attacker can submit unauthorized metrics or interact with the API endpoint as a legitimate client\", \"symbol\": \"API_TOKEN\", \"vulnerability_class\": \"hardcoded_secret\"})\n\nContent:\n```json\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"hardcoded_secret\", \"symbol\": \"API_TOKEN\", \"impact\": \"Anyone with access to the source code, repository history, or deployed application gains a valid API credential that authenticates to the metrics service; attacker can submit unauthorized metrics or interact with the API endpoint as a legitimate client\"}}\n```",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "hardcoded_secret",
+                                "symbol": "API_TOKEN",
+                                "impact": "Anyone with access to the source code, repository history, or deployed application gains a valid API credential that authenticates to the metrics service; attacker can submit unauthorized metrics or interact with the API endpoint as a legitimate client"
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 9.252,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 570,
+                        "total_tokens": 579
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"The hardcoded API token can be extracted by anyone with access to the source code, version control history, or deployed artifacts, allowing unauthorized use of the metrics API and potential data manipulation or exfiltration.\", \"symbol\": \"API_TOKEN\", \"vulnerability_class\": \"hardcoded_secret\"})\n\nContent:\n```json\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"hardcoded_secret\", \"symbol\": \"API_TOKEN\", \"impact\": \"The hardcoded API token can be extracted by anyone with access to the source code, version control history, or deployed artifacts, allowing unauthorized use of the metrics API and potential data manipulation or exfiltration.\"}}\n```",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "hardcoded_secret",
+                                "symbol": "API_TOKEN",
+                                "impact": "The hardcoded API token can be extracted by anyone with access to the source code, version control history, or deployed artifacts, allowing unauthorized use of the metrics API and potential data manipulation or exfiltration."
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                }
+            ],
+            "scores": {
+                "ExecutionMetric": null,
+                "GEval": null,
+                "ToolCallMetric": 1.0,
+                "EmbeddingRetrievalMetric": null,
+                "ExecutionReason": "[1] Skipped (pass --allow-code-execution to enable) | [2] Skipped (pass --allow-code-execution to enable) | [3] Skipped (pass --allow-code-execution to enable)",
+                "GEvalReason": "[1] Skipped (no expected_output_criteria) | [2] Skipped (no expected_output_criteria) | [3] Skipped (no expected_output_criteria)",
+                "ToolCallReason": "[1] 'report_security_finding' called correctly | [2] 'report_security_finding' called correctly | [3] 'report_security_finding' called correctly",
+                "EmbeddingRetrievalReason": "",
+                "ToolCallFailureMode": "ok",
+                "ToolCallPassRate": 1.0
+            }
+        },
+        {
+            "pipeline": {
+                "model": "claude-cli/haiku"
+            },
+            "case_name": "weak-password-hash",
+            "repeats": 3,
+            "latency_sec": 10.175,
+            "tokens": {
+                "prompt_tokens": 27,
+                "completion_tokens": 1747,
+                "total_tokens": 1774
+            },
+            "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"MD5 is cryptographically broken and unsuitable for password hashing. Attackers can perform efficient brute-force attacks or use precomputed rainbow tables to reverse the hashes and compromise user accounts.\", \"symbol\": \"store_password\", \"vulnerability_class\": \"weak_password_hash\"})\n\nContent:\n```json\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"weak_password_hash\", \"symbol\": \"store_password\", \"impact\": \"MD5 is cryptographically broken and unsuitable for password hashing. Attackers can perform efficient brute-force attacks or use precomputed rainbow tables to reverse the hashes and compromise user accounts.\"}}\n```",
+            "tool_calls": [
+                {
+                    "name": "report_security_finding",
+                    "arguments": {
+                        "vulnerability_class": "weak_password_hash",
+                        "symbol": "store_password",
+                        "impact": "MD5 is cryptographically broken and unsuitable for password hashing. Attackers can perform efficient brute-force attacks or use precomputed rainbow tables to reverse the hashes and compromise user accounts."
+                    }
+                }
+            ],
+            "samples": [
+                {
+                    "latency_sec": 9.057,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 546,
+                        "total_tokens": 555
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"Passwords hashed with MD5 without salt can be cracked via precomputed rainbow tables or brute force. MD5 is cryptographically broken and unsuitable for password storage; an attacker with database access can recover plaintext passwords.\", \"symbol\": \"store_password\", \"vulnerability_class\": \"weak_password_hash\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"weak_password_hash\", \"symbol\": \"store_password\", \"impact\": \"Passwords hashed with MD5 without salt can be cracked via precomputed rainbow tables or brute force. MD5 is cryptographically broken and unsuitable for password storage; an attacker with database access can recover plaintext passwords.\"}}",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "weak_password_hash",
+                                "symbol": "store_password",
+                                "impact": "Passwords hashed with MD5 without salt can be cracked via precomputed rainbow tables or brute force. MD5 is cryptographically broken and unsuitable for password storage; an attacker with database access can recover plaintext passwords."
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 11.133,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 584,
+                        "total_tokens": 593
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"MD5 is cryptographically broken and unsuitable for password hashing. Without salt and using a fast hash function, an attacker can efficiently brute-force passwords, perform rainbow table attacks, and crack weak passwords at scale.\", \"symbol\": \"store_password\", \"vulnerability_class\": \"weak_password_hash\"})\n\nContent:\n```json\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"weak_password_hash\", \"symbol\": \"store_password\", \"impact\": \"MD5 is cryptographically broken and unsuitable for password hashing. Without salt and using a fast hash function, an attacker can efficiently brute-force passwords, perform rainbow table attacks, and crack weak passwords at scale.\"}}\n```",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "weak_password_hash",
+                                "symbol": "store_password",
+                                "impact": "MD5 is cryptographically broken and unsuitable for password hashing. Without salt and using a fast hash function, an attacker can efficiently brute-force passwords, perform rainbow table attacks, and crack weak passwords at scale."
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 10.336,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 617,
+                        "total_tokens": 626
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"MD5 is cryptographically broken and unsuitable for password hashing. Attackers can perform efficient brute-force attacks or use precomputed rainbow tables to reverse the hashes and compromise user accounts.\", \"symbol\": \"store_password\", \"vulnerability_class\": \"weak_password_hash\"})\n\nContent:\n```json\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"weak_password_hash\", \"symbol\": \"store_password\", \"impact\": \"MD5 is cryptographically broken and unsuitable for password hashing. Attackers can perform efficient brute-force attacks or use precomputed rainbow tables to reverse the hashes and compromise user accounts.\"}}\n```",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "weak_password_hash",
+                                "symbol": "store_password",
+                                "impact": "MD5 is cryptographically broken and unsuitable for password hashing. Attackers can perform efficient brute-force attacks or use precomputed rainbow tables to reverse the hashes and compromise user accounts."
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                }
+            ],
+            "scores": {
+                "ExecutionMetric": null,
+                "GEval": null,
+                "ToolCallMetric": 1.0,
+                "EmbeddingRetrievalMetric": null,
+                "ExecutionReason": "[1] Skipped (pass --allow-code-execution to enable) | [2] Skipped (pass --allow-code-execution to enable) | [3] Skipped (pass --allow-code-execution to enable)",
+                "GEvalReason": "[1] Skipped (no expected_output_criteria) | [2] Skipped (no expected_output_criteria) | [3] Skipped (no expected_output_criteria)",
+                "ToolCallReason": "[1] 'report_security_finding' called correctly | [2] 'report_security_finding' called correctly | [3] 'report_security_finding' called correctly",
+                "EmbeddingRetrievalReason": "",
+                "ToolCallFailureMode": "ok",
+                "ToolCallPassRate": 1.0
+            }
+        },
+        {
+            "pipeline": {
+                "model": "claude-cli/haiku"
+            },
+            "case_name": "missing-authorization",
+            "repeats": 3,
+            "latency_sec": 10.203,
+            "tokens": {
+                "prompt_tokens": 27,
+                "completion_tokens": 1846,
+                "total_tokens": 1873
+            },
+            "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"An authenticated user can retrieve any invoice by requesting /api/invoices/<id>, regardless of ownership. The endpoint checks authentication but not whether the user owns or has permission to access the specific invoice.\", \"symbol\": \"get_invoice\", \"vulnerability_class\": \"missing_authorization\"})\n\nContent:\n```json\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"missing_authorization\", \"symbol\": \"get_invoice\", \"impact\": \"An authenticated user can retrieve any invoice by requesting /api/invoices/<id>, regardless of ownership. The endpoint checks authentication but not whether the user owns or has permission to access the specific invoice.\"}}\n```",
+            "tool_calls": [
+                {
+                    "name": "report_security_finding",
+                    "arguments": {
+                        "vulnerability_class": "missing_authorization",
+                        "symbol": "get_invoice",
+                        "impact": "An authenticated user can retrieve any invoice by requesting /api/invoices/<id>, regardless of ownership. The endpoint checks authentication but not whether the user owns or has permission to access the specific invoice."
+                    }
+                }
+            ],
+            "samples": [
+                {
+                    "latency_sec": 9.543,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 616,
+                        "total_tokens": 625
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"An authenticated user can access any invoice by its ID, regardless of ownership. An attacker can enumerate and retrieve invoices belonging to other users by changing the invoice_id parameter.\", \"symbol\": \"get_invoice\", \"vulnerability_class\": \"missing_authorization\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"missing_authorization\", \"symbol\": \"get_invoice\", \"impact\": \"An authenticated user can access any invoice by its ID, regardless of ownership. An attacker can enumerate and retrieve invoices belonging to other users by changing the invoice_id parameter.\"}}",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "missing_authorization",
+                                "symbol": "get_invoice",
+                                "impact": "An authenticated user can access any invoice by its ID, regardless of ownership. An attacker can enumerate and retrieve invoices belonging to other users by changing the invoice_id parameter."
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 9.345,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 571,
+                        "total_tokens": 580
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"Any authenticated user can read any invoice in the database by modifying the invoice_id parameter, bypassing per-resource authorization checks\", \"symbol\": \"get_invoice\", \"vulnerability_class\": \"missing_authorization\"})\n\nContent:\n```json\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"missing_authorization\", \"symbol\": \"get_invoice\", \"impact\": \"Any authenticated user can read any invoice in the database by modifying the invoice_id parameter, bypassing per-resource authorization checks\"}}\n```",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "missing_authorization",
+                                "symbol": "get_invoice",
+                                "impact": "Any authenticated user can read any invoice in the database by modifying the invoice_id parameter, bypassing per-resource authorization checks"
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 11.72,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 659,
+                        "total_tokens": 668
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"An authenticated user can retrieve any invoice by requesting /api/invoices/<id>, regardless of ownership. The endpoint checks authentication but not whether the user owns or has permission to access the specific invoice.\", \"symbol\": \"get_invoice\", \"vulnerability_class\": \"missing_authorization\"})\n\nContent:\n```json\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"missing_authorization\", \"symbol\": \"get_invoice\", \"impact\": \"An authenticated user can retrieve any invoice by requesting /api/invoices/<id>, regardless of ownership. The endpoint checks authentication but not whether the user owns or has permission to access the specific invoice.\"}}\n```",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "missing_authorization",
+                                "symbol": "get_invoice",
+                                "impact": "An authenticated user can retrieve any invoice by requesting /api/invoices/<id>, regardless of ownership. The endpoint checks authentication but not whether the user owns or has permission to access the specific invoice."
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                }
+            ],
+            "scores": {
+                "ExecutionMetric": null,
+                "GEval": null,
+                "ToolCallMetric": 1.0,
+                "EmbeddingRetrievalMetric": null,
+                "ExecutionReason": "[1] Skipped (pass --allow-code-execution to enable) | [2] Skipped (pass --allow-code-execution to enable) | [3] Skipped (pass --allow-code-execution to enable)",
+                "GEvalReason": "[1] Skipped (no expected_output_criteria) | [2] Skipped (no expected_output_criteria) | [3] Skipped (no expected_output_criteria)",
+                "ToolCallReason": "[1] 'report_security_finding' called correctly | [2] 'report_security_finding' called correctly | [3] 'report_security_finding' called correctly",
+                "EmbeddingRetrievalReason": "",
+                "ToolCallFailureMode": "ok",
+                "ToolCallPassRate": 1.0
+            }
+        },
+        {
+            "pipeline": {
+                "model": "claude-cli/haiku"
+            },
+            "case_name": "unsafe-deserialization",
+            "repeats": 3,
+            "latency_sec": 8.669,
+            "tokens": {
+                "prompt_tokens": 27,
+                "completion_tokens": 1149,
+                "total_tokens": 1176
+            },
+            "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"Attacker can craft a malicious cookie payload that executes arbitrary Python code when pickle.loads() deserializes it\", \"symbol\": \"restore_session\", \"vulnerability_class\": \"unsafe_deserialization\"})\n\nContent:\n```json\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"unsafe_deserialization\", \"symbol\": \"restore_session\", \"impact\": \"Attacker can craft a malicious cookie payload that executes arbitrary Python code when pickle.loads() deserializes it\"}}\n```",
+            "tool_calls": [
+                {
+                    "name": "report_security_finding",
+                    "arguments": {
+                        "vulnerability_class": "unsafe_deserialization",
+                        "symbol": "restore_session",
+                        "impact": "Attacker can craft a malicious cookie payload that executes arbitrary Python code when pickle.loads() deserializes it"
+                    }
+                }
+            ],
+            "samples": [
+                {
+                    "latency_sec": 9.186,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 403,
+                        "total_tokens": 412
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"An attacker can craft a malicious pickle payload in the cookie to achieve remote code execution on the server\", \"symbol\": \"restore_session\", \"vulnerability_class\": \"unsafe_deserialization\"})\n\nContent:\n```json\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"unsafe_deserialization\", \"symbol\": \"restore_session\", \"impact\": \"An attacker can craft a malicious pickle payload in the cookie to achieve remote code execution on the server\"}}\n```",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "unsafe_deserialization",
+                                "symbol": "restore_session",
+                                "impact": "An attacker can craft a malicious pickle payload in the cookie to achieve remote code execution on the server"
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 8.381,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 381,
+                        "total_tokens": 390
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"An attacker can craft a malicious cookie payload that executes arbitrary code on the server when pickle.loads() deserializes the untrusted data, leading to remote code execution\", \"symbol\": \"restore_session\", \"vulnerability_class\": \"unsafe_deserialization\"})\n\nContent:\n```json\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"unsafe_deserialization\", \"symbol\": \"restore_session\", \"impact\": \"An attacker can craft a malicious cookie payload that executes arbitrary code on the server when pickle.loads() deserializes the untrusted data, leading to remote code execution\"}}\n```",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "unsafe_deserialization",
+                                "symbol": "restore_session",
+                                "impact": "An attacker can craft a malicious cookie payload that executes arbitrary code on the server when pickle.loads() deserializes the untrusted data, leading to remote code execution"
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 8.44,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 365,
+                        "total_tokens": 374
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"Attacker can craft a malicious cookie payload that executes arbitrary Python code when pickle.loads() deserializes it\", \"symbol\": \"restore_session\", \"vulnerability_class\": \"unsafe_deserialization\"})\n\nContent:\n```json\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"unsafe_deserialization\", \"symbol\": \"restore_session\", \"impact\": \"Attacker can craft a malicious cookie payload that executes arbitrary Python code when pickle.loads() deserializes it\"}}\n```",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "unsafe_deserialization",
+                                "symbol": "restore_session",
+                                "impact": "Attacker can craft a malicious cookie payload that executes arbitrary Python code when pickle.loads() deserializes it"
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "'report_security_finding' called correctly",
+                        "ToolCallFailureMode": "ok"
+                    }
+                }
+            ],
+            "scores": {
+                "ExecutionMetric": null,
+                "GEval": null,
+                "ToolCallMetric": 1.0,
+                "EmbeddingRetrievalMetric": null,
+                "ExecutionReason": "[1] Skipped (pass --allow-code-execution to enable) | [2] Skipped (pass --allow-code-execution to enable) | [3] Skipped (pass --allow-code-execution to enable)",
+                "GEvalReason": "[1] Skipped (no expected_output_criteria) | [2] Skipped (no expected_output_criteria) | [3] Skipped (no expected_output_criteria)",
+                "ToolCallReason": "[1] 'report_security_finding' called correctly | [2] 'report_security_finding' called correctly | [3] 'report_security_finding' called correctly",
+                "EmbeddingRetrievalReason": "",
+                "ToolCallFailureMode": "ok",
+                "ToolCallPassRate": 1.0
+            }
+        },
+        {
+            "pipeline": {
+                "model": "claude-cli/haiku"
+            },
+            "case_name": "clean-parameterized-query",
+            "repeats": 3,
+            "latency_sec": 8.91,
+            "tokens": {
+                "prompt_tokens": 27,
+                "completion_tokens": 1754,
+                "total_tokens": 1781
+            },
+            "actual_output": "{\"name\": null, \"arguments\": {}}",
+            "tool_calls": [],
+            "samples": [
+                {
+                    "latency_sec": 9.003,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 549,
+                        "total_tokens": 558
+                    },
+                    "actual_output": "{\"name\": null, \"arguments\": {}}",
+                    "tool_calls": [],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "No tool call emitted, as expected.",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 8.748,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 637,
+                        "total_tokens": 646
+                    },
+                    "actual_output": "{\"name\": null, \"arguments\": {}}",
+                    "tool_calls": [],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "No tool call emitted, as expected.",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 8.979,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 568,
+                        "total_tokens": 577
+                    },
+                    "actual_output": "{\"name\": null, \"arguments\": {}}",
+                    "tool_calls": [],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "No tool call emitted, as expected.",
+                        "ToolCallFailureMode": "ok"
+                    }
+                }
+            ],
+            "scores": {
+                "ExecutionMetric": null,
+                "GEval": null,
+                "ToolCallMetric": 1.0,
+                "EmbeddingRetrievalMetric": null,
+                "ExecutionReason": "[1] Skipped (pass --allow-code-execution to enable) | [2] Skipped (pass --allow-code-execution to enable) | [3] Skipped (pass --allow-code-execution to enable)",
+                "GEvalReason": "[1] Skipped (no expected_output_criteria) | [2] Skipped (no expected_output_criteria) | [3] Skipped (no expected_output_criteria)",
+                "ToolCallReason": "[1] No tool call emitted, as expected. | [2] No tool call emitted, as expected. | [3] No tool call emitted, as expected.",
+                "EmbeddingRetrievalReason": "",
+                "ToolCallFailureMode": "ok",
+                "ToolCallPassRate": 1.0
+            }
+        },
+        {
+            "pipeline": {
+                "model": "claude-cli/haiku"
+            },
+            "case_name": "clean-subprocess-list",
+            "repeats": 3,
+            "latency_sec": 11.846,
+            "tokens": {
+                "prompt_tokens": 27,
+                "completion_tokens": 2478,
+                "total_tokens": 2505
+            },
+            "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"An attacker can write the tar.gz archive to arbitrary locations on the filesystem by supplying report_name values containing ../ sequences (e.g., report_name='../../../tmp/evil' writes to /tmp/evil.tar.gz instead of /var/backups/)\", \"symbol\": \"archive_report\", \"vulnerability_class\": \"path_traversal\"})\n\nContent:\n```json\n{\n  \"name\": \"report_security_finding\",\n  \"arguments\": {\n    \"vulnerability_class\": \"path_traversal\",\n    \"symbol\": \"archive_report\",\n    \"impact\": \"An attacker can write the tar.gz archive to arbitrary locations on the filesystem by supplying report_name values containing ../ sequences (e.g., report_name='../../../tmp/evil' writes to /tmp/evil.tar.gz instead of /var/backups/)\"\n  }\n}\n```",
+            "tool_calls": [
+                {
+                    "name": "report_security_finding",
+                    "arguments": {
+                        "vulnerability_class": "path_traversal",
+                        "symbol": "archive_report",
+                        "impact": "An attacker can write the tar.gz archive to arbitrary locations on the filesystem by supplying report_name values containing ../ sequences (e.g., report_name='../../../tmp/evil' writes to /tmp/evil.tar.gz instead of /var/backups/)"
+                    }
+                }
+            ],
+            "samples": [
+                {
+                    "latency_sec": 11.071,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 786,
+                        "total_tokens": 795
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"An attacker can write tar archives to arbitrary filesystem locations by providing a report_name containing path traversal sequences (e.g., '../'), allowing them to escape /var/backups/ and overwrite files anywhere the process has write permissions\", \"symbol\": \"archive_report\", \"vulnerability_class\": \"path_traversal\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"path_traversal\", \"symbol\": \"archive_report\", \"impact\": \"An attacker can write tar archives to arbitrary filesystem locations by providing a report_name containing path traversal sequences (e.g., '../'), allowing them to escape /var/backups/ and overwrite files anywhere the process has write permissions\"}}",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "path_traversal",
+                                "symbol": "archive_report",
+                                "impact": "An attacker can write tar archives to arbitrary filesystem locations by providing a report_name containing path traversal sequences (e.g., '../'), allowing them to escape /var/backups/ and overwrite files anywhere the process has write permissions"
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 0.0,
+                        "ToolCallReason": "Expected no tool call; model called ['report_security_finding'].",
+                        "ToolCallFailureMode": "unwanted_call"
+                    }
+                },
+                {
+                    "latency_sec": 10.536,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 731,
+                        "total_tokens": 740
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"An attacker can write tar.gz files to arbitrary directories by providing a report_name containing directory traversal sequences (e.g., '../../../tmp/evil'), escaping the intended /var/backups directory\", \"symbol\": \"archive_report\", \"vulnerability_class\": \"path_traversal\"})\n\nContent:\n{\"name\": \"report_security_finding\", \"arguments\": {\"vulnerability_class\": \"path_traversal\", \"symbol\": \"archive_report\", \"impact\": \"An attacker can write tar.gz files to arbitrary directories by providing a report_name containing directory traversal sequences (e.g., '../../../tmp/evil'), escaping the intended /var/backups directory\"}}",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "path_traversal",
+                                "symbol": "archive_report",
+                                "impact": "An attacker can write tar.gz files to arbitrary directories by providing a report_name containing directory traversal sequences (e.g., '../../../tmp/evil'), escaping the intended /var/backups directory"
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 0.0,
+                        "ToolCallReason": "Expected no tool call; model called ['report_security_finding'].",
+                        "ToolCallFailureMode": "unwanted_call"
+                    }
+                },
+                {
+                    "latency_sec": 13.931,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 961,
+                        "total_tokens": 970
+                    },
+                    "actual_output": "Tool calls:\n- report_security_finding({\"impact\": \"An attacker can write the tar.gz archive to arbitrary locations on the filesystem by supplying report_name values containing ../ sequences (e.g., report_name='../../../tmp/evil' writes to /tmp/evil.tar.gz instead of /var/backups/)\", \"symbol\": \"archive_report\", \"vulnerability_class\": \"path_traversal\"})\n\nContent:\n```json\n{\n  \"name\": \"report_security_finding\",\n  \"arguments\": {\n    \"vulnerability_class\": \"path_traversal\",\n    \"symbol\": \"archive_report\",\n    \"impact\": \"An attacker can write the tar.gz archive to arbitrary locations on the filesystem by supplying report_name values containing ../ sequences (e.g., report_name='../../../tmp/evil' writes to /tmp/evil.tar.gz instead of /var/backups/)\"\n  }\n}\n```",
+                    "tool_calls": [
+                        {
+                            "name": "report_security_finding",
+                            "arguments": {
+                                "vulnerability_class": "path_traversal",
+                                "symbol": "archive_report",
+                                "impact": "An attacker can write the tar.gz archive to arbitrary locations on the filesystem by supplying report_name values containing ../ sequences (e.g., report_name='../../../tmp/evil' writes to /tmp/evil.tar.gz instead of /var/backups/)"
+                            }
+                        }
+                    ],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 0.0,
+                        "ToolCallReason": "Expected no tool call; model called ['report_security_finding'].",
+                        "ToolCallFailureMode": "unwanted_call"
+                    }
+                }
+            ],
+            "scores": {
+                "ExecutionMetric": null,
+                "GEval": null,
+                "ToolCallMetric": 0.0,
+                "EmbeddingRetrievalMetric": null,
+                "ExecutionReason": "[1] Skipped (pass --allow-code-execution to enable) | [2] Skipped (pass --allow-code-execution to enable) | [3] Skipped (pass --allow-code-execution to enable)",
+                "GEvalReason": "[1] Skipped (no expected_output_criteria) | [2] Skipped (no expected_output_criteria) | [3] Skipped (no expected_output_criteria)",
+                "ToolCallReason": "[1] Expected no tool call; model called ['report_security_finding']. | [2] Expected no tool call; model called ['report_security_finding']. | [3] Expected no tool call; model called ['report_security_finding'].",
+                "EmbeddingRetrievalReason": "",
+                "ToolCallFailureMode": "unwanted_call",
+                "ToolCallPassRate": 0.0
+            }
+        },
+        {
+            "pipeline": {
+                "model": "claude-cli/haiku"
+            },
+            "case_name": "clean-validated-path",
+            "repeats": 3,
+            "latency_sec": 21.695,
+            "tokens": {
+                "prompt_tokens": 27,
+                "completion_tokens": 5190,
+                "total_tokens": 5217
+            },
+            "actual_output": "{\"name\": null, \"arguments\": {}}",
+            "tool_calls": [],
+            "samples": [
+                {
+                    "latency_sec": 33.093,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 2731,
+                        "total_tokens": 2740
+                    },
+                    "actual_output": "{\"name\": null, \"arguments\": {}}\n\nThis code correctly prevents path traversal. The sequence of `resolve()` + `is_relative_to()` check ensures that even if an attacker supplies `../../etc/passwd` or absolute paths, they will be normalized and validated to remain within `UPLOAD_ROOT`. The check happens before the file read, and the logic is sound for the attack it's designed to prevent.",
+                    "tool_calls": [],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "No tool call emitted, as expected.",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 18.456,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 1426,
+                        "total_tokens": 1435
+                    },
+                    "actual_output": "{\"name\": null, \"arguments\": {}}\n\nThe code correctly prevents path traversal attacks. The implementation:\n\n1. Resolves the candidate path to an absolute path, which normalizes `..` sequences and follows symlinks\n2. Validates that the resolved path is within the upload root using `is_relative_to()`\n\nAn attacker attempting `filename = \"../../etc/passwd\"` will have the path resolve to `/etc/passwd`, which fails the `is_relative_to(UPLOAD_ROOT)` check and is rejected. Symlinks pointing outside the root are also caught by the `resolve()` + `is_relative_to()` combination.\n\nThis is a secure pattern for preventing directory traversal.",
+                    "tool_calls": [],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "No tool call emitted, as expected.",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 13.536,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 1033,
+                        "total_tokens": 1042
+                    },
+                    "actual_output": "{\"name\": null, \"arguments\": {}}",
+                    "tool_calls": [],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "No tool call emitted, as expected.",
+                        "ToolCallFailureMode": "ok"
+                    }
+                }
+            ],
+            "scores": {
+                "ExecutionMetric": null,
+                "GEval": null,
+                "ToolCallMetric": 1.0,
+                "EmbeddingRetrievalMetric": null,
+                "ExecutionReason": "[1] Skipped (pass --allow-code-execution to enable) | [2] Skipped (pass --allow-code-execution to enable) | [3] Skipped (pass --allow-code-execution to enable)",
+                "GEvalReason": "[1] Skipped (no expected_output_criteria) | [2] Skipped (no expected_output_criteria) | [3] Skipped (no expected_output_criteria)",
+                "ToolCallReason": "[1] No tool call emitted, as expected. | [2] No tool call emitted, as expected. | [3] No tool call emitted, as expected.",
+                "EmbeddingRetrievalReason": "",
+                "ToolCallFailureMode": "ok",
+                "ToolCallPassRate": 1.0
+            }
+        },
+        {
+            "pipeline": {
+                "model": "claude-cli/haiku"
+            },
+            "case_name": "clean-env-secret",
+            "repeats": 3,
+            "latency_sec": 10.798,
+            "tokens": {
+                "prompt_tokens": 27,
+                "completion_tokens": 2062,
+                "total_tokens": 2089
+            },
+            "actual_output": "{\"name\": null, \"arguments\": {}}",
+            "tool_calls": [],
+            "samples": [
+                {
+                    "latency_sec": 9.899,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 638,
+                        "total_tokens": 647
+                    },
+                    "actual_output": "{\"name\": null, \"arguments\": {}}",
+                    "tool_calls": [],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "No tool call emitted, as expected.",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 9.421,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 634,
+                        "total_tokens": 643
+                    },
+                    "actual_output": "{\"name\": null, \"arguments\": {}}",
+                    "tool_calls": [],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "No tool call emitted, as expected.",
+                        "ToolCallFailureMode": "ok"
+                    }
+                },
+                {
+                    "latency_sec": 13.073,
+                    "tokens": {
+                        "prompt_tokens": 9,
+                        "completion_tokens": 790,
+                        "total_tokens": 799
+                    },
+                    "actual_output": "{\"name\": null, \"arguments\": {}}",
+                    "tool_calls": [],
+                    "scores": {
+                        "ExecutionMetric": null,
+                        "ExecutionReason": "Skipped (pass --allow-code-execution to enable)",
+                        "GEval": null,
+                        "GEvalReason": "Skipped (no expected_output_criteria)",
+                        "ToolCallMetric": 1.0,
+                        "ToolCallReason": "No tool call emitted, as expected.",
+                        "ToolCallFailureMode": "ok"
+                    }
+                }
+            ],
+            "scores": {
+                "ExecutionMetric": null,
+                "GEval": null,
+                "ToolCallMetric": 1.0,
+                "EmbeddingRetrievalMetric": null,
+                "ExecutionReason": "[1] Skipped (pass --allow-code-execution to enable) | [2] Skipped (pass --allow-code-execution to enable) | [3] Skipped (pass --allow-code-execution to enable)",
+                "GEvalReason": "[1] Skipped (no expected_output_criteria) | [2] Skipped (no expected_output_criteria) | [3] Skipped (no expected_output_criteria)",
+                "ToolCallReason": "[1] No tool call emitted, as expected. | [2] No tool call emitted, as expected. | [3] No tool call emitted, as expected.",
+                "EmbeddingRetrievalReason": "",
+                "ToolCallFailureMode": "ok",
+                "ToolCallPassRate": 1.0
+            }
+        }
+    ]
+}
