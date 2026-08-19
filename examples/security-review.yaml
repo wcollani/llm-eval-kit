@@ -1,0 +1,194 @@
+# Security Review Battery -- closes the testing gap that left the Security Review lane
+# unable to justify any model choice.
+#
+# Scored by ToolCallMetric: the model reports a finding as a structured call naming a
+# vulnerability_class from a fixed vocabulary, so scoring is exact-match with no judge
+# model, on the same principle as every other metric in this stack.
+#
+# HALF THIS BATTERY IS CLEAN CODE, and that is the point. A detector that flags
+# everything scores perfectly on vulnerable files and is worthless, because a review
+# that cries wolf gets ignored. Each clean file deliberately resembles one of the
+# vulnerable ones -- a parameterised query next to a concatenated one, subprocess with an
+# argument list next to os.system, a resolved-and-checked path next to a concatenated
+# one, an environment token next to a literal one. Those cases use expect_no_tool_call,
+# so a false positive scores as `unwanted_call` and is visible as its own failure mode
+# rather than being averaged away.
+#
+# WHAT THIS DOES NOT MEASURE. One file, one request. The Security Review lane is agentic:
+# it drives a harness through a worktree, decides what to open, and reasons about
+# reachability across files. This battery says whether a model can recognise a
+# vulnerability it is looking straight at -- necessary, not sufficient. That distinction
+# is exactly the trap that put cogito:14b-16k in a lane after it scored 1.00 on a
+# code-review GEval and 0.00 on real work. An agentic security fixture in harness-bench
+# is the follow-up; do not promote a model to the lane on this file alone.
+#
+# Both Claude tiers are listed so the question the lane's binding rests on -- does sonnet
+# actually detect better than haiku, or is it only more expensive -- has an answer.
+
+experiment_name: Security Review Battery
+workflow: tool_calling
+system_prompt: 'You are a security reviewer. You are shown one source file. Decide whether it contains
+  a security vulnerability.
+
+
+  If it does, call report_security_finding once per distinct vulnerability, using exactly one of the listed
+  vulnerability_class values.
+
+
+  If the file is safe, do NOT call the tool. Say in prose that you found nothing.
+
+
+  Judge the code in front of you, not the pattern it resembles. Some safe code deliberately looks like
+  unsafe code -- a query that interpolates an allowlisted column name is not injection, and a subprocess
+  call with an argument list and no shell is not command injection. Reporting those is a false positive,
+  and a review that cries wolf gets ignored.'
+num_ctx: 8192
+repeats: 3
+models_to_test:
+- claude-cli/sonnet
+- claude-cli/haiku
+tools:
+- type: function
+  function:
+    name: report_security_finding
+    description: Report ONE security vulnerability found in the code under review. Call once per distinct
+      vulnerability. If the code has no security vulnerability, do not call this tool at all -- answer
+      in prose that you found nothing.
+    parameters:
+      type: object
+      properties:
+        vulnerability_class:
+          type: string
+          description: 'The vulnerability class, as one of exactly these values: sql_injection, command_injection,
+            path_traversal, hardcoded_secret, weak_password_hash, missing_authorization, unsafe_deserialization'
+        symbol:
+          type: string
+          description: Function or symbol containing the flaw
+        impact:
+          type: string
+          description: What an attacker gains, concretely
+      required:
+      - vulnerability_class
+      - symbol
+      - impact
+test_cases:
+- name: sql-injection
+  task_prompt: 'Review this file for security vulnerabilities.
+
+
+    --- sql_injection.py ---
+
+    '
+  input_file: inputs/security/sql_injection.py
+  expected_tool_calls:
+  - name: report_security_finding
+    arguments_contains:
+      vulnerability_class: sql_injection
+- name: command-injection
+  task_prompt: 'Review this file for security vulnerabilities.
+
+
+    --- command_injection.py ---
+
+    '
+  input_file: inputs/security/command_injection.py
+  expected_tool_calls:
+  - name: report_security_finding
+    arguments_contains:
+      vulnerability_class: command_injection
+- name: path-traversal
+  task_prompt: 'Review this file for security vulnerabilities.
+
+
+    --- path_traversal.py ---
+
+    '
+  input_file: inputs/security/path_traversal.py
+  expected_tool_calls:
+  - name: report_security_finding
+    arguments_contains:
+      vulnerability_class: path_traversal
+- name: hardcoded-secret
+  task_prompt: 'Review this file for security vulnerabilities.
+
+
+    --- hardcoded_secret.py ---
+
+    '
+  input_file: inputs/security/hardcoded_secret.py
+  expected_tool_calls:
+  - name: report_security_finding
+    arguments_contains:
+      vulnerability_class: hardcoded_secret
+- name: weak-password-hash
+  task_prompt: 'Review this file for security vulnerabilities.
+
+
+    --- weak_password_hash.py ---
+
+    '
+  input_file: inputs/security/weak_password_hash.py
+  expected_tool_calls:
+  - name: report_security_finding
+    arguments_contains:
+      vulnerability_class: weak_password_hash
+- name: missing-authorization
+  task_prompt: 'Review this file for security vulnerabilities.
+
+
+    --- missing_authorization.py ---
+
+    '
+  input_file: inputs/security/missing_authorization.py
+  expected_tool_calls:
+  - name: report_security_finding
+    arguments_contains:
+      vulnerability_class: missing_authorization
+- name: unsafe-deserialization
+  task_prompt: 'Review this file for security vulnerabilities.
+
+
+    --- unsafe_deserialization.py ---
+
+    '
+  input_file: inputs/security/unsafe_deserialization.py
+  expected_tool_calls:
+  - name: report_security_finding
+    arguments_contains:
+      vulnerability_class: unsafe_deserialization
+- name: clean-parameterized-query
+  task_prompt: 'Review this file for security vulnerabilities.
+
+
+    --- clean_parameterized_query.py ---
+
+    '
+  input_file: inputs/security/clean_parameterized_query.py
+  expect_no_tool_call: true
+- name: clean-subprocess-list
+  task_prompt: 'Review this file for security vulnerabilities.
+
+
+    --- clean_subprocess_list.py ---
+
+    '
+  input_file: inputs/security/clean_subprocess_list.py
+  expect_no_tool_call: true
+- name: clean-validated-path
+  task_prompt: 'Review this file for security vulnerabilities.
+
+
+    --- clean_validated_path.py ---
+
+    '
+  input_file: inputs/security/clean_validated_path.py
+  expect_no_tool_call: true
+- name: clean-env-secret
+  task_prompt: 'Review this file for security vulnerabilities.
+
+
+    --- clean_env_secret.py ---
+
+    '
+  input_file: inputs/security/clean_env_secret.py
+  expect_no_tool_call: true

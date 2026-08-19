@@ -42,6 +42,9 @@ def resolve_endpoint(model_name: str):
     api_base = os.getenv("LITELLM_API_BASE", "http://localhost:4000/v1")
     is_direct = False
 
+    if model_name.startswith("claude-cli/"):
+        return model_name[len("claude-cli/") :], None, False
+
     if model_name.startswith("anthropic/"):
         # litellm resolves the endpoint and key itself for a first-class provider;
         # returning api_base=None keeps _chat from overriding it with the proxy.
@@ -363,6 +366,78 @@ class EmbeddingRetrievalMetric(BaseMetric):
         return "Embedding Retrieval Rank"
 
 
+# The `claude` CLI is driven as a subprocess rather than through the API, following
+# harness-bench's claude-code adapter: it authenticates against a Claude subscription,
+# so measuring a model that only runs behind that subscription costs quota rather than
+# metered API credits.
+#
+# FIDELITY TRADEOFF, stated plainly: the CLI accepts no arbitrary tool schemas -- its
+# tools are its own, and extra ones arrive only over MCP. So the schemas are rendered
+# into the prompt and the model is asked to answer with the call it would make. That
+# measures the *decision* against the real model, which is the point; it does not
+# measure whether the model reliably emits a well-formed tool call through a real
+# function-calling API. A `no_call` here means it did not answer in the requested shape,
+# which is a weaker claim than it would be over the API.
+_CLAUDE_CLI_CONTRACT = """
+
+You have access to the following tools:
+
+{tools}
+
+Answer with a single JSON object naming the ONE tool call you would make, and nothing
+else -- no prose, no markdown fence:
+
+{{"name": "<tool name>", "arguments": {{...}}}}
+
+If you would not call any tool, answer exactly: {{"name": null, "arguments": {{}}}}
+"""
+
+
+def _chat_claude_cli(model: str, system_prompt: str, input_prompt: str, tools: list | None):
+    """One turn through the `claude` CLI. Returns (output, usage, tool_calls)."""
+    rendered = ""
+    if tools:
+        rendered = json.dumps(
+            [t.get("function", t) for t in tools], indent=2
+        )
+    prompt = f"{system_prompt}\n\n{input_prompt}"
+    if tools:
+        prompt += _CLAUDE_CLI_CONTRACT.format(tools=rendered)
+
+    argv = ["claude", "-p", prompt, "--output-format", "json"]
+    if model and model not in ("default", "native"):
+        argv += ["--model", model]
+    # Its own tools are irrelevant here and would let it wander off exploring the
+    # filesystem instead of answering; a routing decision needs no filesystem at all.
+    argv += ["--disallowedTools", "Bash", "Read", "Write", "Edit", "Glob", "Grep", "Task", "WebFetch", "WebSearch"]
+
+    proc = subprocess.run(argv, capture_output=True, text=True, timeout=600)
+    if proc.returncode != 0:
+        raise RuntimeError(f"claude CLI exited {proc.returncode}: {proc.stderr[:400]}")
+
+    envelope = json.loads(proc.stdout)
+    output = envelope.get("result") or ""
+    u = envelope.get("usage") or {}
+    usage = {
+        "prompt_tokens": u.get("input_tokens", 0),
+        "completion_tokens": u.get("output_tokens", 0),
+        "total_tokens": u.get("input_tokens", 0) + u.get("output_tokens", 0),
+    }
+
+    # Parse the declared call back into the same shape a real tool_calls array has, so
+    # ToolCallMetric scores this identically to every other transport.
+    tool_calls = []
+    m = re.search(r"\{.*\}", output, re.DOTALL)
+    if m:
+        try:
+            obj = json.loads(m.group(0))
+            if isinstance(obj, dict) and obj.get("name"):
+                tool_calls = [{"name": obj["name"], "arguments": obj.get("arguments") or {}}]
+        except json.JSONDecodeError:
+            pass
+    return output, usage, tool_calls
+
+
 def _chat(model_name: str, system_prompt: str, input_prompt: str, num_ctx: int = 4096, tools: list | None = None):
     """One chat completion via litellm routing or a direct ollama hit.
 
@@ -374,6 +449,10 @@ def _chat(model_name: str, system_prompt: str, input_prompt: str, num_ctx: int =
     """
     start_time = time.time()
     proxy_model, api_base, is_direct = resolve_endpoint(model_name)
+
+    if model_name.startswith("claude-cli/"):
+        output, usage, tool_calls = _chat_claude_cli(proxy_model, system_prompt, input_prompt, tools)
+        return output, time.time() - start_time, usage, tool_calls
 
     if is_direct:
         payload = {
