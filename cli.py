@@ -33,9 +33,19 @@ def resolve_endpoint(model_name: str):
       direct_ws/<model>   — native Ollama /api/chat on OLLAMA_WS_URL
       direct_sre/<model>  — native Ollama /api/chat on OLLAMA_SRE_URL
       openai/<model>      — treated as OpenAI-compatible, routed through proxy
+      anthropic/<model>   — Anthropic's own API, via ANTHROPIC_API_KEY
+
+    The anthropic/ prefix exists because some things worth evaluating run on a hosted
+    model in production and nowhere else — a routing agent, for instance. Scoring a
+    local stand-in would measure a model that never sees the real traffic.
     """
     api_base = os.getenv("LITELLM_API_BASE", "http://localhost:4000/v1")
     is_direct = False
+
+    if model_name.startswith("anthropic/"):
+        # litellm resolves the endpoint and key itself for a first-class provider;
+        # returning api_base=None keeps _chat from overriding it with the proxy.
+        return model_name, None, False
 
     if model_name.startswith("direct_ws/"):
         api_base = os.getenv("OLLAMA_WS_URL", "http://localhost:11434") + "/api/chat"
@@ -395,18 +405,31 @@ def _chat(model_name: str, system_prompt: str, input_prompt: str, num_ctx: int =
         kwargs = {}
         if tools:
             kwargs["tools"] = tools
-        response = litellm.completion(
-            model=proxy_model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": input_prompt}
-            ],
-            api_base=api_base,
-            api_key="sk-dummy",
-            num_ctx=num_ctx,
-            timeout=1200,
-            **kwargs,
-        )
+        if api_base is None:
+            # A first-class litellm provider (anthropic/...): let it resolve its own
+            # endpoint and credentials. num_ctx is an Ollama option and is not sent.
+            response = litellm.completion(
+                model=proxy_model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": input_prompt},
+                ],
+                timeout=1200,
+                **kwargs,
+            )
+        else:
+            response = litellm.completion(
+                model=proxy_model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": input_prompt}
+                ],
+                api_base=api_base,
+                api_key="sk-dummy",
+                num_ctx=num_ctx,
+                timeout=1200,
+                **kwargs,
+            )
         latency = time.time() - start_time
         message = response.choices[0].message
         output = message.content or ""
@@ -1084,9 +1107,15 @@ def run(
         "--parallel",
         help="Evaluate all model combos concurrently instead of sequentially.",
     ),
+    fail_under: float = typer.Option(
+        None,
+        "--fail-under",
+        help="Exit non-zero if any pipeline's mean ToolCallPassRate falls below this. "
+             "Turns a run into a regression gate rather than something to eyeball.",
+    ),
 ):
     """Run an agent experiment defined in a YAML spec."""
-    asyncio.run(_run_eval(config_path, allow_code_execution, dry_run, resume, parallel))
+    asyncio.run(_run_eval(config_path, allow_code_execution, dry_run, resume, parallel, fail_under))
 
 
 async def _run_eval(
@@ -1095,6 +1124,7 @@ async def _run_eval(
     dry_run: bool,
     resume: bool,
     parallel: bool,
+    fail_under: float | None = None,
 ) -> None:
     setup_tracing()
 
@@ -1146,6 +1176,62 @@ async def _run_eval(
                 results["runs"].extend(runs)
     finally:
         save_experiment_results(experiment_name, results, output_path=resume_path)
+
+    _print_headline(results, fail_under)
+
+
+def _headline_scores(results: dict) -> dict[str, dict]:
+    """Per-pipeline headline: mean ToolCallMetric and mean ToolCallPassRate.
+
+    Per-case scores answer "which case failed"; a regression gate needs one number per
+    pipeline it can compare against a committed baseline. Pass rate is the honest one to
+    gate on -- a mean score can sit comfortably above a threshold while half the runs
+    route to the wrong place.
+    """
+    by_pipeline: dict[str, list[dict]] = {}
+    for run in results.get("runs", []):
+        by_pipeline.setdefault(str(run.get("pipeline", "?")), []).append(run)
+
+    out: dict[str, dict] = {}
+    for pipeline, runs in by_pipeline.items():
+        def mean(key):
+            vals = [r.get("scores", {}).get(key) for r in runs]
+            vals = [v for v in vals if v is not None]
+            return round(sum(vals) / len(vals), 3) if vals else None
+
+        out[pipeline] = {
+            "cases": len(runs),
+            "ToolCallMetric": mean("ToolCallMetric"),
+            "ToolCallPassRate": mean("ToolCallPassRate"),
+        }
+    return out
+
+
+def _print_headline(results: dict, fail_under: float | None) -> None:
+    headline = _headline_scores(results)
+    if not headline:
+        return
+
+    print("\n[*] Headline (mean across cases)")
+    for pipeline, s in sorted(headline.items()):
+        score = "n/a" if s["ToolCallMetric"] is None else f"{s['ToolCallMetric']:.3f}"
+        rate = "n/a" if s["ToolCallPassRate"] is None else f"{s['ToolCallPassRate']:.3f}"
+        print(f"    {pipeline:52} score={score}  pass_rate={rate}  n={s['cases']}")
+
+    if fail_under is None:
+        return
+
+    failed = {
+        p: s["ToolCallPassRate"]
+        for p, s in headline.items()
+        if s["ToolCallPassRate"] is not None and s["ToolCallPassRate"] < fail_under
+    }
+    if failed:
+        print(f"\n[!] FAIL: pass rate below --fail-under={fail_under}")
+        for p, rate in sorted(failed.items()):
+            print(f"    {p}: {rate:.3f}")
+        raise typer.Exit(code=1)
+    print(f"\n[+] PASS: every pipeline at or above --fail-under={fail_under}")
 
 
 @app.command()
