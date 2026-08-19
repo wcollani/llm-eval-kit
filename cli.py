@@ -1199,10 +1199,28 @@ def _headline_scores(results: dict) -> dict[str, dict]:
             vals = [v for v in vals if v is not None]
             return round(sum(vals) / len(vals), 3) if vals else None
 
+        # Failure modes are counted, not just averaged, because a single pass rate
+        # conflates two failures that need different fixes. A `no_call` means the model
+        # answered in prose and the plumbing saw nothing -- a reliability problem with
+        # that model. A `wrong_tool`/`bad_arguments` means it acted, incorrectly -- a
+        # correctness problem with the prompt or the task. An experiment can sit at 0.7
+        # entirely from the former while every decision it actually made was right.
+        modes: dict[str, int] = {}
+        for r in runs:
+            raw = r.get("scores", {}).get("ToolCallFailureMode") or ""
+            for part in raw.replace("mixed(", "").replace(")", "").split(","):
+                part = part.strip()
+                if part:
+                    modes[part] = modes.get(part, 0) + 1
+
         out[pipeline] = {
             "cases": len(runs),
             "ToolCallMetric": mean("ToolCallMetric"),
             "ToolCallPassRate": mean("ToolCallPassRate"),
+            "failure_modes": modes,
+            "incorrect_actions": sum(
+                modes.get(m, 0) for m in ("wrong_tool", "bad_arguments", "unwanted_call")
+            ),
         }
     return out
 
@@ -1217,6 +1235,11 @@ def _print_headline(results: dict, fail_under: float | None) -> None:
         score = "n/a" if s["ToolCallMetric"] is None else f"{s['ToolCallMetric']:.3f}"
         rate = "n/a" if s["ToolCallPassRate"] is None else f"{s['ToolCallPassRate']:.3f}"
         print(f"    {pipeline:52} score={score}  pass_rate={rate}  n={s['cases']}")
+        if s["failure_modes"]:
+            detail = "  ".join(f"{k}={v}" for k, v in sorted(s["failure_modes"].items()))
+            print(f"      modes: {detail}")
+            print(f"      incorrect actions (wrong_tool/bad_arguments/unwanted_call): "
+                  f"{s['incorrect_actions']}")
 
     if fail_under is None:
         return
