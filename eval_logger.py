@@ -83,3 +83,39 @@ def push_metrics_to_prometheus(experiment_name, model_name, case_name, scores, l
         )
     except Exception as e:
         print(f"[!] Failed to push metrics to Prometheus Pushgateway: {e}")
+
+
+def push_usage_record(record, gateway_url=None):
+    """Pushes a usage_record.UsageRecord as Prometheus gauges. Never raises. homelab#93/#94/#95.
+
+    Grouped by source+harness+model+cost_class so "what did the factory spend today, by lane"
+    is one query: sum by (harness, model) (homelab_usage_usd{source="harness-run"}).
+    """
+    if gateway_url is None:
+        gateway_url = os.getenv("PROMETHEUS_PUSHGATEWAY_URL")
+    if not gateway_url:
+        return
+
+    labels = ["source", "harness", "model", "cost_class"]
+    label_values = dict(source=record.source, harness=record.harness,
+                        model=record.model, cost_class=record.cost_class)
+    try:
+        registry = CollectorRegistry()
+
+        def gauge(name, desc, value):
+            if value is None:
+                return
+            g = Gauge(name, desc, labels, registry=registry)
+            g.labels(**label_values).set(value)
+
+        gauge("homelab_usage_tokens_in", "Input tokens per run", record.tokens_in)
+        gauge("homelab_usage_tokens_out", "Output tokens per run", record.tokens_out)
+        gauge("homelab_usage_tokens_cache_read", "Cache-read tokens per run", record.tokens_cache_read)
+        gauge("homelab_usage_tokens_cache_write", "Cache-write tokens per run", record.tokens_cache_write)
+        gauge("homelab_usage_usd", "Dollar cost per run, where reportable", record.usd)
+        gauge("homelab_usage_wall_clock_seconds", "Wall clock seconds per run", record.wall_clock_s)
+        gauge("homelab_usage_gpu_seconds", "Sampled GPU-busy seconds per run", record.gpu_seconds)
+
+        push_to_gateway(gateway_url, job="homelab_usage", registry=registry, grouping_key=label_values)
+    except Exception as e:
+        print(f"[!] Failed to push usage record to Prometheus Pushgateway: {e}")
