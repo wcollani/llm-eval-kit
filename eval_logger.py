@@ -86,19 +86,23 @@ def push_metrics_to_prometheus(experiment_name, model_name, case_name, scores, l
 
 
 def push_usage_record(record, gateway_url=None):
-    """Pushes a usage_record.UsageRecord as Prometheus gauges. Never raises. homelab#93/#94/#95.
+    """Pushes a usage_record.UsageRecord as Prometheus gauges. Never raises. homelab#93/#94/#95/#98.
 
-    Grouped by source+harness+model+cost_class so "what did the factory spend today, by lane"
-    is one query: sum by (harness, model) (homelab_usage_usd{source="harness-run"}).
+    Grouped by source+harness+model+cost_class+run_id so "what did the factory spend today, by
+    lane" is one query: sum by (harness, model) (homelab_usage_usd{source="harness-run"}) --
+    and "by ticket" is another: sum by (run_id) (...). `run_id` is "" when a run has no ticket to
+    attribute to (harness_bench.usage_record's own docstring has the convention); that groups
+    cleanly as its own series rather than colliding with an attributed one.
     """
     if gateway_url is None:
         gateway_url = os.getenv("PROMETHEUS_PUSHGATEWAY_URL")
     if not gateway_url:
         return
 
-    labels = ["source", "harness", "model", "cost_class"]
+    labels = ["source", "harness", "model", "cost_class", "run_id"]
     label_values = dict(source=record.source, harness=record.harness,
-                        model=record.model, cost_class=record.cost_class)
+                        model=record.model, cost_class=record.cost_class,
+                        run_id=record.run_id)
     try:
         registry = CollectorRegistry()
 

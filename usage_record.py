@@ -7,6 +7,15 @@ package dependency -- this stays a single dependency-free file on purpose.
 not merely unmeasured: `agy` reports no dollar figure at all (pure plan quota), and nothing that
 never touches local hardware has a GPU second to report. A schema that required either would be
 unable to represent the estate's largest non-Claude spender.
+
+**`run_id` convention, homelab#98, written down here before it is threaded anywhere else.** The
+fully-qualified GitHub ticket a run's quota burn belongs to (`owner/repo#N`), or `""` when there
+is none to attribute to. Fully-qualified rather than a bare `#N`: the same trial-record store
+already holds runs from multiple repos, and a bare issue number collides the moment two repos
+each have their own `#42` in flight. `""` is a real, reportable value, not an error case --
+`harness-bench`'s own benchmark trials are not tied to a ticket at all, and attributing the
+factory's own runs while honestly reporting the rest as `""` (`sum by (run_id="")`) is worth more
+than waiting for every source to have one.
 """
 
 from __future__ import annotations
@@ -33,6 +42,7 @@ class UsageRecord:
     usd: Optional[float] = None
     wall_clock_s: float = 0.0
     gpu_seconds: Optional[float] = None
+    run_id: str = ""  # homelab#98. "owner/repo#N", or "" when unattributed -- see module docstring.
 
     def __post_init__(self):
         if self.cost_class not in COST_CLASSES:

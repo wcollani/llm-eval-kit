@@ -49,6 +49,21 @@ class TestUsageRecordRoundTrips(unittest.TestCase):
             UsageRecord(source="x", harness="x", model="x", cost_class="made_up",
                        tokens_in=0, tokens_out=0)
 
+    def test_run_id_defaults_to_unattributed(self):
+        """homelab#98. A record built with no run_id is "" -- a real, reportable value, not a
+        missing field an older caller forgot to set."""
+        rec = UsageRecord(source="x", harness="x", model="x", cost_class="unavailable",
+                          tokens_in=0, tokens_out=0)
+        self.assertEqual(rec.run_id, "")
+
+    def test_run_id_round_trips(self):
+        raw = {"source": "harness-run", "harness": "claude-code", "model": "haiku",
+              "cost_class": "subscription_quota", "tokens_in": 1, "tokens_out": 1,
+              "run_id": "collani-homelab/homelab-toy#232"}
+        rec = UsageRecord.from_dict(raw)
+        self.assertEqual(rec.run_id, "collani-homelab/homelab-toy#232")
+        self.assertEqual(UsageRecord.from_dict(rec.to_dict()), rec)
+
 
 if __name__ == "__main__":
     unittest.main()
