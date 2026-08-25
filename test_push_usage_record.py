@@ -29,7 +29,18 @@ class TestPushUsageRecord(unittest.TestCase):
         self.assertEqual(kwargs["job"], "homelab_usage")
         self.assertEqual(kwargs["grouping_key"],
                          dict(source="harness-run", harness="claude-code",
-                              model="haiku", cost_class="subscription_quota"))
+                              model="haiku", cost_class="subscription_quota", run_id=""))
+
+    def test_run_id_is_part_of_the_grouping_key(self):
+        """homelab#98. So "burn by ticket" is sum by (run_id) (...), not a second store."""
+        with mock.patch("eval_logger.push_to_gateway") as pushed:
+            eval_logger.push_usage_record(UsageRecord(
+                source="harness-run", harness="claude-code", model="haiku",
+                cost_class="subscription_quota", tokens_in=10, tokens_out=5,
+                run_id="collani-homelab/homelab-toy#232",
+            ), gateway_url="http://pushgateway:9091")
+        self.assertEqual(pushed.call_args.kwargs["grouping_key"]["run_id"],
+                         "collani-homelab/homelab-toy#232")
 
     def test_a_push_error_is_swallowed_not_raised(self):
         with mock.patch("eval_logger.push_to_gateway", side_effect=OSError("unreachable")):
