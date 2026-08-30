@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Test
+    # Public repo -- GitHub-hosted runner only (AGENTS.md §6, GLOBAL_CLAUDE.md §3).
+    # Never self-hosted here.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install package + test deps
+        run: |
+          python -m pip install --disable-pip-version-check --quiet -e .
+          python -m pip install --disable-pip-version-check --quiet pytest
+
+      - name: Run tests
+        run: python -m pytest test_usage_record.py test_push_usage_record.py -v

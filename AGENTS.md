@@ -63,6 +63,7 @@ When running inside the homelab:
 
 **This is a public repo — CI runs on GitHub-hosted runners only.**
 
+- `ci.yml` runs `test_usage_record.py`/`test_push_usage_record.py` on every push/PR to `main`
 - `release.yml` triggers on `v*` tags and creates a GitHub Release with auto-generated notes
 - To cut a release: `git tag v0.2.0 && git push --tags`
 - Homelab can pin installs to a release tag: `pip install git+https://github.com/wcollani/llm-eval-kit.git@v0.2.0`
