@@ -31,7 +31,7 @@ test_cases:
     expected_output_criteria: "The output must contain Y and not contain Z."
 ```
 
-Results go to `results/<experiment_name>_<timestamp>.json`. OTLP traces go to `$OTEL_EXPORTER_OTLP_ENDPOINT` (default: `localhost:4319`).
+Results go to `results/<experiment_name>_<timestamp>.json`. OTLP traces go to `$OTEL_EXPORTER_OTLP_ENDPOINT` (default: `localhost:4318`).
 
 ## 3. Model Routing Prefixes
 
@@ -56,8 +56,8 @@ Do not add new workflow types without a corresponding example YAML in `examples/
 
 When running inside the homelab:
 - Set `PROMETHEUS_PUSHGATEWAY_URL` to push metrics to your Pushgateway (e.g. `http://<host>:9091`)
-- Set `OTEL_EXPORTER_OTLP_ENDPOINT=http://<host>:4319` to send traces to Grafana Alloy → Arize Phoenix
-- Production experiment configs live in `homelab-platform/services/dagu/dags/experiments-config/` as Dagu DAG YAMLs
+- Set `OTEL_EXPORTER_OTLP_ENDPOINT=http://<host>:4318` to send traces to Grafana Alloy → Arize Phoenix (verified against `homelab-monitoring`'s live Alloy config — the receiver listens on `4318`, not `4319`)
+- Production experiment configs used to live in `homelab-platform/services/dagu/dags/experiments-config/` as Dagu DAG YAMLs — **Dagu was decommissioned** (`homelab-platform#68`); check with the operator for wherever experiment scheduling actually lives now before assuming this path is current
 
 ## 6. CI/CD & Releases
 
