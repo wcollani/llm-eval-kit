@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Test
+    # Public repo -- GitHub-hosted runner only (AGENTS.md §6, GLOBAL_CLAUDE.md §3).
+    # Never self-hosted here.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install package + test deps
+        run: |
+          python -m pip install --disable-pip-version-check --quiet -e .
+          python -m pip install --disable-pip-version-check --quiet pytest
+
+      # -p no:phoenix: arize-phoenix registers a pytest11 entry point
+      # (phoenix.client.pytest.plugin) that pytest autoloads and eagerly imports on
+      # startup, regardless of which tests are selected. Under Python 3.11 specifically
+      # that import chain hits a dataclass field (phoenix/trace/dsl/filter.py) whose
+      # mappingproxy default trips 3.11's stricter mutable-default check -- unrelated to
+      # anything these tests exercise. Neither test file uses phoenix.
+      - name: Run tests
+        run: python -m pytest -p no:phoenix test_usage_record.py test_push_usage_record.py -v
