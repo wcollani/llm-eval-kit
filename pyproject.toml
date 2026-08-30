@@ -20,7 +20,11 @@ dependencies = [
     "opentelemetry-api>=1.20.0",
     "opentelemetry-sdk>=1.20.0",
     "opentelemetry-exporter-otlp>=1.20.0",
-    "arize-phoenix>=4.0.0",
+    # >=4.0.0 let pip's resolver land on an old release whose dataclass usage breaks under
+    # Python 3.11's stricter mutable-default check ("mutable default <mappingproxy> for
+    # field boolean_names") -- caught by ci.yml on ubuntu-latest's 3.11, not locally on a
+    # newer interpreter where a newer, fixed release got resolved instead.
+    "arize-phoenix>=20.0.0",
     "pyyaml>=6.0",
     "pydantic>=2.0.0",
     "pytest-asyncio>=0.23.0",
